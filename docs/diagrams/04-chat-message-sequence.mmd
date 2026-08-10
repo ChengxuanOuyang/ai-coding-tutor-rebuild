@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant S as 学生
+    participant F as React
+    participant A as FastAPI
+    participant P as 教学引擎
+    participant C as 上下文构建器
+    participant L as LLM
+    participant D as PostgreSQL
+
+    S->>F: 输入 Python 或物理问题
+    F->>A: 发送消息和会话 ID
+    A->>D: 验证用户并读取历史
+    A->>P: 判断提示等级
+    P-->>A: 编程等级、数学等级
+    A->>C: 组装系统指令和历史
+    C->>L: 发送结构化模型请求
+    L-->>A: 返回教学回答
+    A->>D: 保存消息、等级和用量
+    A-->>F: 返回或流式发送回答
+    F-->>S: 渲染 Markdown、代码和公式

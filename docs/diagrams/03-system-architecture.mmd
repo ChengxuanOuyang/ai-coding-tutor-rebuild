@@ -1,0 +1,43 @@
+flowchart TB
+    subgraph UI["React 前端"]
+        AUTHUI["登录与注册"]
+        CHATUI["教学聊天"]
+        PROFILE["能力设置"]
+        NOTEBOOKUI["简化 Notebook 上下文"]
+    end
+
+    subgraph API["FastAPI 接口层"]
+        AUTHAPI["Auth Router"]
+        CHATAPI["Chat Router"]
+        NOTEBOOKAPI["Notebook Router"]
+    end
+
+    subgraph CORE["产品核心"]
+        AUTH["认证服务"]
+        CHAT["会话服务"]
+        PEDAGOGY["教学策略引擎"]
+        CONTEXT["上下文构建器"]
+        LLM["LLM Provider 接口"]
+    end
+
+    subgraph DATA["数据层"]
+        USERS["Users"]
+        SESSIONS["Chat Sessions"]
+        MESSAGES["Messages"]
+        NOTEBOOKS["Notebooks"]
+        USAGE["Token Usage"]
+    end
+
+    AUTHUI --> AUTHAPI --> AUTH
+    CHATUI --> CHATAPI --> CHAT
+    PROFILE --> AUTHAPI
+    NOTEBOOKUI --> NOTEBOOKAPI
+    CHAT --> PEDAGOGY
+    CHAT --> CONTEXT
+    CONTEXT --> LLM
+    PEDAGOGY --> CONTEXT
+    AUTH --> USERS
+    CHAT --> SESSIONS
+    CHAT --> MESSAGES
+    CHAT --> USAGE
+    NOTEBOOKAPI --> NOTEBOOKS
