@@ -212,6 +212,22 @@ learning_rate 和 updated，最后限制输出范围。不要同时更新 Studen
 注入任意文字，并且示例评测记录会构成虚假声明；新增两项红灯后，加入风格白名单，版本改为
 `pedagogy-v0.1.0`，相关评测标记为计划中且 `not run`。最终六条 Prompt 测试通过。
 
+### 任务 7：Provider 合同与 Mock Provider
+
+使用的核心 Prompt：
+
+```text
+先定义模型调用边界，不接入任何真实厂商 SDK。
+红灯测试必须证明：相同请求产生完全相同的响应；响应包含内容、Provider、模型和 Token 估算；
+空输入也能在没有网络、API Key 或环境变量的情况下返回合法结果。
+
+红灯确认后，只实现不可变 TutorRequest、TutorResponse、TutorProvider Protocol，
+以及确定性的 MockTutorProvider。不要让 Provider 计算提示等级、拼装产品 Prompt 或写数据库。
+```
+
+执行结果：两条测试因 Mock Provider 模块缺失而失败。最小实现后转绿；Provider 合同只依赖
+项目内部数据类型，没有引入厂商 SDK、网络调用或密钥配置。
+
 ## AI 提出的假设
 
 | 假设 | 处理 | 原因 |
@@ -264,3 +280,4 @@ EMA 是确定性更新算法，并非两个并列参数。不能由 LLM 直接�
 | 2026-08-11 | phase-01-log-v0.3 | 增加任务 4 EMA Prompt、数值测试与边界记录 |
 | 2026-08-11 | phase-01-log-v0.4 | 增加任务 5 元数据边界 Prompt 与变异验证记录 |
 | 2026-08-11 | phase-01-log-v0.5 | 增加任务 6 Prompt Builder、真实版本记录和学习检查点 |
+| 2026-08-11 | phase-01-log-v0.6 | 增加任务 7 Provider 合同与 Mock 实现记录 |
