@@ -24,6 +24,7 @@ class StudentState:
     effective_maths_level: float
     programming_hint_level: HintLevel = HintLevel.SOCRATIC
     maths_hint_level: HintLevel = HintLevel.SOCRATIC
+    communication_style: str = "Suitable for undergraduate beginners"
 
 
 @dataclass(frozen=True)
