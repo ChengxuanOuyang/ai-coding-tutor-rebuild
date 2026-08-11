@@ -96,3 +96,40 @@ def test_same_problem_increments_each_dimension_independently() -> None:
 
     assert programming is HintLevel.STRUCTURAL
     assert maths is HintLevel.FULL_SOLUTION
+
+
+def test_effective_level_uses_hint_weighted_ema() -> None:
+    from backend.app.ai.pedagogy import update_effective_level
+
+    updated = update_effective_level(
+        current_level=2.0,
+        difficulty=4,
+        final_hint_level=HintLevel.CONCEPTUAL,
+    )
+
+    assert updated == pytest.approx(2.24)
+
+
+def test_easy_problem_has_reduced_influence() -> None:
+    from backend.app.ai.pedagogy import update_effective_level
+
+    updated = update_effective_level(
+        current_level=5.0,
+        difficulty=1,
+        final_hint_level=HintLevel.FULL_SOLUTION,
+    )
+
+    assert updated == pytest.approx(4.808)
+
+
+@pytest.mark.parametrize("current", [0.5, 5.5])
+def test_effective_level_output_is_clamped(current: float) -> None:
+    from backend.app.ai.pedagogy import update_effective_level
+
+    updated = update_effective_level(
+        current_level=current,
+        difficulty=5,
+        final_hint_level=HintLevel.SOCRATIC,
+    )
+
+    assert 1.0 <= updated <= 5.0
