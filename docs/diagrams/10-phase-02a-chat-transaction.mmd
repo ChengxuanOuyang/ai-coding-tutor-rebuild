@@ -1,0 +1,42 @@
+sequenceDiagram
+    participant C as API 客户端
+    participant R as Chat Router
+    participant S as Chat Service
+    participant D as In-memory Repositories
+    participant A as Problem Analyzer
+    participant P as Pedagogy Engine
+    participant T as Tutor Provider
+
+    C->>R: POST /sessions/{id}/messages + Bearer Token
+    R->>S: 当前用户、会话 ID、学生消息
+    Note over S: 获取每会话 asyncio.Lock
+    S->>D: 验证所有权并读取历史
+    D-->>S: 用户状态、会话、最近消息
+    S->>A: 学生消息与受限历史
+
+    alt Analyzer 瞬时失败
+        S->>A: 短暂退避后重试一次
+    end
+
+    A-->>S: 四字段 ProblemAssessment
+    S->>S: 严格 Schema 与跨字段校验
+    S->>P: 计算双提示等级与临时 EMA 状态
+    P-->>S: 临时教学状态
+    S->>T: 版本化 Prompt 与学生消息
+
+    alt Tutor 瞬时失败
+        S->>T: 短暂退避后重试一次
+    end
+
+    T-->>S: TutorResponse 与 Token 用量
+    S->>D: 原子提交两条消息和新学生状态
+    D-->>S: 已提交的完整聊天回合
+    Note over S: 释放会话锁
+    S-->>R: 领域响应
+    R-->>C: 201 JSON
+
+    opt Analyzer、Schema 或 Tutor 最终失败
+        Note over S: 丢弃暂存状态并释放会话锁
+        S-->>R: 不提交任何消息或能力更新
+        R-->>C: 502 或 503
+    end

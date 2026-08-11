@@ -1,0 +1,39 @@
+flowchart LR
+    subgraph PUBLIC["公开接口"]
+        HEALTH["GET /health"]
+        REGISTER["POST /auth/register"]
+        LOGIN["POST /auth/login"]
+    end
+
+    BEARER["Bearer Token 鉴权"]
+
+    subgraph PROTECTED["受保护接口"]
+        LOGOUT["POST /auth/logout"]
+        ME["GET /users/me"]
+        CREATE_SESSION["POST /sessions"]
+        LIST_SESSIONS["GET /sessions"]
+        HISTORY["GET /sessions/{id}/messages"]
+        CHAT["POST /sessions/{id}/messages"]
+    end
+
+    subgraph DATA["内存实体"]
+        USER["User"]
+        TOKEN["AuthToken"]
+        SESSION["ChatSession"]
+        MESSAGE["ChatMessage"]
+        ASSESSMENT["ProblemAssessment"]
+    end
+
+    REGISTER --> USER
+    LOGIN --> TOKEN
+    TOKEN --> BEARER
+    BEARER --> LOGOUT
+    BEARER --> ME
+    BEARER --> CREATE_SESSION
+    BEARER --> LIST_SESSIONS
+    BEARER --> HISTORY
+    BEARER --> CHAT
+    USER --> TOKEN
+    USER --> SESSION
+    SESSION --> MESSAGE
+    MESSAGE --> ASSESSMENT

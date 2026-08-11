@@ -1,0 +1,49 @@
+flowchart TB
+    CLIENT["API 客户端"]
+
+    subgraph HTTP["FastAPI 接口层"]
+        AUTH_ROUTER["Auth Router"]
+        CHAT_ROUTER["Chat Router"]
+    end
+
+    subgraph APP["应用服务"]
+        AUTH_SERVICE["Auth Service"]
+        CHAT_SERVICE["Chat Service"]
+        UOW["Chat Unit of Work"]
+    end
+
+    subgraph DOMAIN["Phase 01 领域核心"]
+        PEDAGOGY["Pedagogy Engine"]
+        PROMPT["Prompt Builder"]
+    end
+
+    subgraph PORTS["端口"]
+        REPOSITORIES["Repository Protocols"]
+        ANALYZER["Problem Analyzer Protocol"]
+        TUTOR["Tutor Provider Protocol"]
+    end
+
+    subgraph ADAPTERS["Phase 02A 适配器"]
+        MEMORY["In-memory Repositories"]
+        MOCK_ANALYZER["Mock Analyzer"]
+        OPENAI_ANALYZER["OpenAI Luna Analyzer"]
+        MOCK_TUTOR["Mock Tutor"]
+        OPENAI_TUTOR["OpenAI Terra Tutor"]
+    end
+
+    POSTGRES["Phase 02B PostgreSQL Adapter"]
+
+    CLIENT --> AUTH_ROUTER --> AUTH_SERVICE
+    CLIENT --> CHAT_ROUTER --> CHAT_SERVICE
+    AUTH_SERVICE --> REPOSITORIES
+    CHAT_SERVICE --> REPOSITORIES
+    CHAT_SERVICE --> ANALYZER
+    CHAT_SERVICE --> PEDAGOGY --> PROMPT
+    CHAT_SERVICE --> TUTOR
+    CHAT_SERVICE --> UOW --> REPOSITORIES
+    REPOSITORIES --> MEMORY
+    REPOSITORIES -. "下一阶段替换" .-> POSTGRES
+    ANALYZER --> MOCK_ANALYZER
+    ANALYZER --> OPENAI_ANALYZER
+    TUTOR --> MOCK_TUTOR
+    TUTOR --> OPENAI_TUTOR

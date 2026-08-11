@@ -11,6 +11,9 @@
 | 05 | `05-vibe-coding-loop.mmd` | 人与 AI 协作的完整开发循环 |
 | 06 | `06-prompt-composition.mmd` | 模块化产品 Prompt 的组合方式 |
 | 07 | `07-testing-pipeline.mmd` | AI 产品的五层测试结构 |
+| 08 | `08-phase-02a-architecture.mmd` | Phase 02A 的 Router、Service、领域核心和适配器边界 |
+| 09 | `09-phase-02a-api-and-data.mmd` | Phase 02A 的公开/受保护 API 与内存实体关系 |
+| 10 | `10-phase-02a-chat-transaction.mmd` | 一轮聊天的评估、教学、重试与原子提交时序 |
 
 `rendered/` 保存适合 GitHub README、报告和演示使用的 SVG。任何图表变更都应同时更新源文件、渲染文件和本索引。
 
