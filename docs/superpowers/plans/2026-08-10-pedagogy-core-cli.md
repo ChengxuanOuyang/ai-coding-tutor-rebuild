@@ -66,6 +66,16 @@ docs/
 - 创建：`backend/tests/__init__.py`
 - 创建：`backend/tests/test_project_imports.py`
 
+- [ ] **步骤 0：建立隔离的 Python 工具环境**
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install 'pytest>=8.0,<9.0' 'ruff>=0.9,<1.0'
+```
+
+这一步只准备测试执行器和 Lint 工具，不创建产品包。这样下一步的红灯会因
+`backend.app` 尚不存在而失败，而不是因测试工具缺失而报错。
+
 - [ ] **步骤 1：编写失败的导入测试**
 
 创建 `backend/tests/test_project_imports.py`：
@@ -88,10 +98,10 @@ def test_ai_package_imports() -> None:
 运行：
 
 ```bash
-python3 -m pytest backend/tests/test_project_imports.py -v
+.venv/bin/python -m pytest backend/tests/test_project_imports.py -v
 ```
 
-预期：FAIL，出现 `ModuleNotFoundError` 或缺少 Pytest，因为工程和开发依赖尚未建立。
+预期：测试被正常收集，并因 `ModuleNotFoundError: No module named 'backend'` 失败。
 
 - [ ] **步骤 3：创建工程配置和包文件**
 
@@ -136,7 +146,7 @@ select = ["E", "F", "I", "B", "UP"]
 安装开发依赖：
 
 ```bash
-python3 -m pip install -e '.[dev]'
+.venv/bin/python -m pip install -e '.[dev]'
 ```
 
 - [ ] **步骤 4：运行导入测试和 Lint**
@@ -144,8 +154,8 @@ python3 -m pip install -e '.[dev]'
 运行：
 
 ```bash
-python3 -m pytest backend/tests/test_project_imports.py -v
-python3 -m ruff check backend
+.venv/bin/python -m pytest backend/tests/test_project_imports.py -v
+.venv/bin/python -m ruff check backend
 ```
 
 预期：两个测试 PASS，Ruff 返回 `All checks passed!`。
@@ -1230,12 +1240,13 @@ git commit -m "docs: record phase one implementation retrospective"
 - [ ] **步骤 4：推送并验证远程提交**
 
 ```bash
-git push origin main
+git push -u origin feature/phase-01-pedagogy-core
 git rev-parse HEAD
-git rev-parse origin/main
+git rev-parse origin/feature/phase-01-pedagogy-core
 ```
 
-预期：两个哈希完全一致，GitHub Private 仓库显示本阶段全部提交。
+预期：两个哈希完全一致，GitHub Private 仓库的功能分支显示本阶段全部提交。
+完成 `finishing-a-development-branch` 验收后，再由学习者选择合并、创建 PR 或保留分支。
 
 ## 第一阶段完成定义
 
@@ -1251,4 +1262,4 @@ git rev-parse origin/main
 - Mock CLI 可以从命令行运行并输出有效 JSON。
 - 全部 Pytest 和 Ruff 检查通过。
 - 教学框架、Prompt 设计、开发 Prompt 和复盘文档已经更新。
-- 本地 `HEAD` 与远程 `origin/main` 一致。
+- 本地 `HEAD` 与远程 `origin/feature/phase-01-pedagogy-core` 一致。

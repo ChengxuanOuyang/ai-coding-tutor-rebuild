@@ -1,3 +1,5 @@
 .DS_Store
 .local-tools/
+.venv/
+.worktrees/
 node_modules/
