@@ -8,8 +8,8 @@ Prompt 设计、软件实现、测试、部署、用户评估和项目总结。
 
 ## 当前阶段
 
-Phase 01 的教学规则核心、模块化产品 Prompt、可替换 Provider 边界和 Mock CLI 已完成；
-最终学习验收与阶段收尾尚未完成。当前版本不调用真实 LLM，也不包含 Web API、数据库或前端。
+Phase 01 的教学规则核心、模块化产品 Prompt、可替换 Provider 边界、Mock CLI、文档和学习验收
+均已完成。当前版本不调用真实 LLM，也不包含 Web API、数据库或前端；功能分支等待集成选择。
 
 - [正式设计规格](docs/superpowers/specs/2026-08-10-ai-coding-tutor-rebuild-design.md)
 - [Phase 01 实施计划](docs/superpowers/plans/2026-08-10-pedagogy-core-cli.md)
@@ -79,5 +79,5 @@ docs/
 
 ## 后续阶段
 
-Phase 01 验收后，将依次规划 FastAPI、PostgreSQL、用户与会话、真实 LLM Provider、
-React 聊天界面、Notebook 上下文、流式响应、Docker、CI/CD 和用户评估。
+Phase 02 将规划 FastAPI、PostgreSQL、用户与会话；后续再接入真实 LLM Provider、React 聊天界面、
+Notebook 上下文、流式响应、Docker、CI/CD 和用户评估。
