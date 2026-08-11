@@ -24,3 +24,11 @@ class StudentState:
     effective_maths_level: float
     programming_hint_level: HintLevel = HintLevel.SOCRATIC
     maths_hint_level: HintLevel = HintLevel.SOCRATIC
+
+
+@dataclass(frozen=True)
+class PedagogyMetadata:
+    same_problem: bool
+    is_elaboration: bool
+    programming_difficulty: int
+    maths_difficulty: int

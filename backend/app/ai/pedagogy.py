@@ -1,4 +1,7 @@
-from backend.app.ai.types import HintLevel, StudentState
+from collections.abc import Mapping
+from typing import Any
+
+from backend.app.ai.types import HintLevel, PedagogyMetadata, StudentState
 
 
 def _clamp_hint(value: int, *, maximum: int) -> HintLevel:
@@ -38,3 +41,42 @@ def update_effective_level(
     learning_rate = 0.2 * min(1.0, safe_difficulty / safe_current)
     updated = safe_current * (1 - learning_rate) + demonstrated_level * learning_rate
     return max(1.0, min(5.0, updated))
+
+
+def coerce_pedagogy_metadata(
+    raw: Mapping[str, Any],
+    *,
+    has_previous_exchange: bool,
+) -> PedagogyMetadata:
+    required = {
+        "same_problem",
+        "is_elaboration",
+        "programming_difficulty",
+        "maths_difficulty",
+    }
+    if not required.issubset(raw):
+        raise ValueError("Missing pedagogy metadata fields")
+
+    same_problem = raw["same_problem"]
+    is_elaboration = raw["is_elaboration"]
+    programming = raw["programming_difficulty"]
+    maths = raw["maths_difficulty"]
+    if not isinstance(same_problem, bool) or not isinstance(is_elaboration, bool):
+        raise ValueError("Pedagogy flags must be boolean")
+    if isinstance(programming, bool) or not isinstance(programming, int):
+        raise ValueError("Programming difficulty must be an integer")
+    if isinstance(maths, bool) or not isinstance(maths, int):
+        raise ValueError("Maths difficulty must be an integer")
+
+    if not has_previous_exchange:
+        same_problem = False
+        is_elaboration = False
+    elif not same_problem:
+        is_elaboration = False
+
+    return PedagogyMetadata(
+        same_problem=same_problem,
+        is_elaboration=is_elaboration,
+        programming_difficulty=max(1, min(5, programming)),
+        maths_difficulty=max(1, min(5, maths)),
+    )

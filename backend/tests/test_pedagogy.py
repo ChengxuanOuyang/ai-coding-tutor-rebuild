@@ -133,3 +133,73 @@ def test_effective_level_output_is_clamped(current: float) -> None:
     )
 
     assert 1.0 <= updated <= 5.0
+
+
+def test_metadata_is_validated_and_clamped() -> None:
+    from backend.app.ai.pedagogy import coerce_pedagogy_metadata
+    from backend.app.ai.types import PedagogyMetadata
+
+    metadata = coerce_pedagogy_metadata(
+        {
+            "same_problem": True,
+            "is_elaboration": True,
+            "programming_difficulty": 9,
+            "maths_difficulty": -2,
+        },
+        has_previous_exchange=True,
+    )
+
+    assert metadata == PedagogyMetadata(
+        same_problem=True,
+        is_elaboration=True,
+        programming_difficulty=5,
+        maths_difficulty=1,
+    )
+
+
+def test_first_message_cannot_be_same_problem() -> None:
+    from backend.app.ai.pedagogy import coerce_pedagogy_metadata
+
+    metadata = coerce_pedagogy_metadata(
+        {
+            "same_problem": True,
+            "is_elaboration": True,
+            "programming_difficulty": 3,
+            "maths_difficulty": 3,
+        },
+        has_previous_exchange=False,
+    )
+
+    assert metadata.same_problem is False
+    assert metadata.is_elaboration is False
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {},
+        {
+            "same_problem": "yes",
+            "is_elaboration": False,
+            "programming_difficulty": 3,
+            "maths_difficulty": 2,
+        },
+        {
+            "same_problem": False,
+            "is_elaboration": False,
+            "programming_difficulty": "hard",
+            "maths_difficulty": 2,
+        },
+        {
+            "same_problem": False,
+            "is_elaboration": False,
+            "programming_difficulty": True,
+            "maths_difficulty": 2,
+        },
+    ],
+)
+def test_invalid_metadata_raises_value_error(raw: dict[str, object]) -> None:
+    from backend.app.ai.pedagogy import coerce_pedagogy_metadata
+
+    with pytest.raises(ValueError):
+        coerce_pedagogy_metadata(raw, has_previous_exchange=True)
