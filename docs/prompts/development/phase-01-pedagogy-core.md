@@ -228,6 +228,22 @@ learning_rate 和 updated，最后限制输出范围。不要同时更新 Studen
 执行结果：两条测试因 Mock Provider 模块缺失而失败。最小实现后转绿；Provider 合同只依赖
 项目内部数据类型，没有引入厂商 SDK、网络调用或密钥配置。
 
+### 任务 8：确定性命令行 Tutor
+
+使用的核心 Prompt：
+
+```text
+把现有教学模块串成最小可运行 CLI，不在入口文件复制业务规则。
+先写两个独立进程端到端测试：合法输入必须输出可解析 JSON，并包含独立提示等级、Provider、
+模型、内容和 Token；越界难度必须返回退出码 2、清晰错误信息且不输出成功载荷。
+
+红灯确认后，CLI 只负责参数解析和编排：StudentState -> compute_hint_levels ->
+build_system_prompt -> TutorRequest -> MockTutorProvider -> JSON。不要接入数据库、网络或真实模型。
+```
+
+执行结果：两个测试都因 CLI 模块缺失而失败；实现后转绿。真实命令行示例返回编程提示等级 3、
+数学提示等级 1、Provider `mock`、模型 `deterministic-tutor-v1`，并给出非零 Token 估算。
+
 ## AI 提出的假设
 
 | 假设 | 处理 | 原因 |
@@ -281,3 +297,4 @@ EMA 是确定性更新算法，并非两个并列参数。不能由 LLM 直接�
 | 2026-08-11 | phase-01-log-v0.4 | 增加任务 5 元数据边界 Prompt 与变异验证记录 |
 | 2026-08-11 | phase-01-log-v0.5 | 增加任务 6 Prompt Builder、真实版本记录和学习检查点 |
 | 2026-08-11 | phase-01-log-v0.6 | 增加任务 7 Provider 合同与 Mock 实现记录 |
+| 2026-08-11 | phase-01-log-v0.7 | 增加任务 8 CLI 编排 Prompt 与真实运行摘要 |
