@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import (
@@ -99,3 +99,39 @@ class MessageResponse(BaseModel):
     role: MessageRole
     content: str
     created_at: datetime
+
+
+class MessageCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    content: str
+
+    @field_validator("content")
+    @classmethod
+    def normalize_content(cls, value: str) -> str:
+        normalized = value.strip()
+        if not 1 <= len(normalized) <= 4_000:
+            raise ValueError("String should contain 1 to 4000 characters after trimming")
+        return normalized
+
+
+class UserChatMessageResponse(BaseModel):
+    id: UUID
+    role: Literal[MessageRole.USER]
+    content: str
+    created_at: datetime
+
+
+class AssistantChatMessageResponse(BaseModel):
+    id: UUID
+    role: Literal[MessageRole.ASSISTANT]
+    content: str
+    created_at: datetime
+    provider: str
+    model: str
+
+
+class ChatTurnResponse(BaseModel):
+    session_id: UUID
+    user_message: UserChatMessageResponse
+    assistant_message: AssistantChatMessageResponse

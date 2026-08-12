@@ -8,7 +8,14 @@ from backend.app.api.schemas import (
     ValidationErrorResponse,
     ValidationIssue,
 )
-from backend.app.domain.errors import AuthenticationError, ConflictError, DomainError, NotFoundError
+from backend.app.domain.errors import (
+    AuthenticationError,
+    ConflictError,
+    DomainError,
+    NotFoundError,
+    UpstreamInvalidResponseError,
+    UpstreamUnavailableError,
+)
 
 
 def _error_response(error: DomainError, status_code: int) -> JSONResponse:
@@ -35,6 +42,23 @@ async def handle_domain_error(_: Request, error: DomainError) -> JSONResponse:
     return _error_response(error, 400)
 
 
+async def handle_invalid_upstream_response(
+    _: Request, error: UpstreamInvalidResponseError
+) -> JSONResponse:
+    return _error_response(error, 502)
+
+
+async def handle_unavailable_upstream(_: Request, error: UpstreamUnavailableError) -> JSONResponse:
+    return _error_response(error, 503)
+
+
+async def handle_unexpected_error(_: Request, __: Exception) -> JSONResponse:
+    content = ErrorResponse(
+        error=ErrorDetail(code="internal_error", message="Internal server error")
+    ).model_dump()
+    return JSONResponse(status_code=500, content=content)
+
+
 async def handle_validation_error(
     _: Request, error: RequestValidationError
 ) -> JSONResponse:
@@ -54,4 +78,7 @@ def install_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(AuthenticationError, handle_authentication_error)
     app.add_exception_handler(ConflictError, handle_conflict_error)
     app.add_exception_handler(NotFoundError, handle_not_found_error)
+    app.add_exception_handler(UpstreamInvalidResponseError, handle_invalid_upstream_response)
+    app.add_exception_handler(UpstreamUnavailableError, handle_unavailable_upstream)
     app.add_exception_handler(DomainError, handle_domain_error)
+    app.add_exception_handler(Exception, handle_unexpected_error)

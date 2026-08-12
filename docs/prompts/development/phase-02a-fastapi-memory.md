@@ -464,3 +464,42 @@ Tutor 结果在 stage 前严格校验；历史必须按最终转义后的序列�
   Analyzer 仍接收同一已选历史消息的完整用户文本。4,000 正文、角色前缀/换行精确边界、多条连续后缀和 HTML
   转义回归均证明 Prompt Builder 不再进行额外截断，最新 sentinel 保留。
 - 复审结论：待独立审查；本记录只保留首次 FAIL、RED/GREEN 和当前验证证据，不宣称复审通过。
+
+## 17. Task 10：聊天 API、错误映射与学生可见响应（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase02A Task10。工作树 feature/phase-02a-fastapi-memory，禁止 main。完整读 task10
+brief/spec/plan、Task9 service/domain/errors、现有 API 错误/Schema/fixtures/Prompt。严格 TDD。实现
+POST /sessions/{id}/messages 201 和公开 schemas。MessageCreate strip 1..4000 strict/extra forbid；service
+也已有防线。ChatTurnResponse只 session_id+两public messages；user不得provider/model字段。助手只允许
+provider/model，绝不返回 tokens、assessment、hints、effective/system prompt。404 ownership indistinguishable；
+invalid UUID/validation safe422；invalid upstream 502；upstream unavailable 503；unexpected 500 必须安全，
+但默认开发 TestClient 不能被静默吞错。失败仍零写由service保证并API测试确认。
+
+client_with_failing_tutor必须独立容器且logged session必须在同client创建，避免fixture交叉。OpenAPI response
+models/status。默认mock offline。不要Task11 adapters/key。追加Prompt/TDD/纠偏。apply_patch。focused/full/Ruff/
+diff/sensitive，OpenAPI检查。提交 `feat: expose atomic tutoring chat API (task 10/12)` push。报告task-10-report.md，
+不预写review。
+```
+
+### TDD 证据与边界说明
+
+- RED：先新增 `test_chat_api.py` 和失败 Tutor/登录会话 fixtures；执行
+  `.venv/bin/python -m pytest backend/tests/test_chat_api.py -v` 收集 6 项，均因 `POST /sessions/{id}/messages`
+  尚未注册返回 405（OpenAPI 缺少 `post`）失败，明确证明缺失的是本任务 API 边界。
+- GREEN：`MessageCreate` 使用 strict Pydantic 模型、`extra="forbid"`，并在校验后去首尾空白且限制为
+  1--4,000 字符。Service 的同一限制仍作为非 HTTP 调用方防线。
+- 公开投影使用两种不同的响应模型：用户消息仅为 `id`、`role`、`content`、`created_at`；助手消息额外仅为
+  `provider`、`model`。因此用户消息没有值为 `null` 的 provider/model，也不会序列化评估、双 hints、有效等级、
+  Token 用量或 system prompt。
+- 错误边界：`UpstreamInvalidResponseError` 映射 502，`UpstreamUnavailableError` 映射 503，其余未预期
+  `Exception` 映射不含异常详情的稳定 500。500 测试明确创建 `raise_server_exceptions=False` 的 TestClient；
+  默认开发 fixture 仍保留其抛出未处理异常的行为。无效 UUID/请求体按现有安全 422 handler 处理；同一未知/非 owner
+  session 的 DomainError 保持完全相同的 404。
+- fixture 纠偏：`logged_in_session` 根据请求测试选择其实际 client，并在该 client 的独立内存容器中注册、登录、
+  创建 session；失败 Tutor 测试不再使用普通 client 创建的凭证或 session。502/503 API 回归随后读取历史并断言
+  空数组，作为 HTTP 层的零写确认。
+- 首轮 GREEN：`test_chat_api.py` 为 `6 passed`；关联 auth/session/chat API 套件为 `17 passed`。最终完整验证
+  证据记录于 Task 10 报告；未在这里预写独立审查结论。
