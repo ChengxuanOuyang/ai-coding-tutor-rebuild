@@ -334,3 +334,32 @@ Task6 审查 FAIL：memory.py 的 session/message list 只按 created_at 排序�
 - GREEN：两个 Repository 均改为 `(created_at, id.int)` 升序，保持既有创建时间升序方向；UOW 既有测试
   的随机 UUID 与同 timestamp 的插入顺序假设不再成立，改为显式递增 UUID，使其继续只测试原子提交。
 - 本次纠偏的复审结论待独立审查，不在此处预写通过。
+
+## 15. Task 7：Problem Analyzer 合同与确定性 Mock（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase02A Task7。工作树 feature/phase-02a-fastapi-memory，禁止 main。完整读取 Task7
+简报、批准规格/计划、现有 ai/domain/pedagogy/Prompt；严格 TDD。创建 frozen AnalyzerRequest、
+async ProblemAnalyzer Protocol 和确定性 Mock。难度规则仅使用固定关键词，编程与数学独立且严格为
+1..5。规范化必须稳定地处理大小写、Unicode 全半角及首尾/内部空白；ASCII 关键词按词边界，中文
+关键词按字串。recent_messages 的批准澄清为仅含用户消息、按旧到新排列，最后一项是最近问题；只有
+非空的规范化文本与该项相等时 same_problem 为真。规格没有 elaboration 判定规则，因此 mock 始终返回
+False，不能声称语义智能。无网络、Key、随机性，不实现 Task8 provider。追加 Prompt/TDD/边界说明，
+运行聚焦、完整、Ruff、diff 和敏感扫描，提交并推送。
+```
+
+### TDD 证据与边界说明
+
+- RED：先新增 `test_analyzer.py`，运行 `.venv/bin/python -m pytest backend/tests/test_analyzer.py -v`；6 项
+  均因 `ModuleNotFoundError: backend.app.ai.analyzer` 失败，失败原因仅是目标模块尚未实现。
+- 规则：编程关键词为 `bug/code/coding/error/exception/for/function/loop/program/programming/python/syntax/variable/while`
+  和 `代码/函数/循环/报错/异常/语法/程序/编程/变量/错误`；数学关键词为
+  `algebra/calculus/derivative/equation/integral/math/maths/mathematics/matrix/vector` 和
+  `代数/导数/微积分/方程/积分/向量/数学/矩阵`。命中返回该维度 3，不命中返回 1；两个维度独立。
+- 历史语义澄清：`AnalyzerRequest.recent_messages` 不是完整带角色 transcript；它只能传入用户问题，按
+  时间从旧到新排列。Mock 只比较最后一个条目。NFKC、`casefold()` 与空白折叠后，两个非空文本完全相等才是
+  `same_problem=True`；空文本永远不是同一题。标点不被删除，因此相同标点文本可精确相等。
+- `is_elaboration` 的批准规格、计划和 Task7 简报均未提供固定判定。为避免无依据的语义推断，这个纯测试
+  替身固定返回 `False`；后续真实 Analyzer 仍须经过既有 metadata 校验与跨字段不变量处理。
