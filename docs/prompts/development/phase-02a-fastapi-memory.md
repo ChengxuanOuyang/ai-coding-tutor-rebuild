@@ -258,3 +258,33 @@ clock/TTL/token factory 的 AuthService。明文 Token 只可从 login 返回，
 - GREEN：`DUMMY_PASSWORD_HASH` 在模块加载时仅构造一次；登录先选择用户 hash 或 dummy hash，再无条件
   调用一次 `verify_password()`，最后统一判断 user/password validity。新增 RED 回归测试变为通过；正式
   复审结论仍待独立审查，不在此处预写通过。
+
+## 13. Task 5：认证、当前用户 API 与统一错误响应（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase 02A 的任务 5：认证、当前用户 API 与统一错误响应。
+先读取 Task 5 简报、批准规格、实施计划、现有 AuthService、main/config/domain/errors，以及本 Prompt
+存档的格式。严格 TDD：先写 FastAPI TestClient 注册、登录、当前用户、退出、Token 失败等价、冲突、
+严格等级验证、OpenAPI 和两个默认 app 实例隔离测试，运行并确认 RED 是缺失 client/router；再以最小
+Pydantic Schema、Bearer dependency、auth/users Router、DomainError handler 和 app.state.container 让它们
+转绿。请求等级必须拒绝 bool/float；成功响应不得包含密码 hash、effective level、内部 hints 或 Token
+digest。422 必须保留可定位的安全验证信息且不得回显密码。默认装配不得调用 AI、访问网络或要求 Key，
+且 /health 必须保持独立。不要实现 Task 6 会话。
+```
+
+### TDD 证据与校正
+
+- RED：新增 `test_auth_api.py` 后运行
+  `.venv/bin/python -m pytest backend/tests/test_auth_api.py -v`，4 项均因 `client` fixture 尚不存在报错；
+  这证明 API 测试可收集且 HTTP 容器尚未实现。
+- GREEN：每次 `create_app()` 建立独立的 `InMemoryStore`/`AuthService` 默认容器，测试 fixture 也注入独立
+  固定时钟服务；`app.state.container` 只属于该 app 实例，无模块级内存字典。
+- 校正：FastAPI 默认的 422 载荷会包含失败字段的 `input`，这可能回显密码。新增
+  `RequestValidationError` handler 后返回稳定 `validation_error` 和 Pydantic 的 `loc/msg/type`，保留可用
+  字段定位但不返回原始输入或内部栈信息。临时移除 handler 后，新增测试按预期 RED（`KeyError: 'error'`），
+  恢复最小 handler 后转绿。
+- Bearer 校正：缺失、`Basic` 畸形和未知 Bearer 凭证都进入同一 AuthService `invalid_token` 路径，响应为
+  `401`、同一安全错误代码，并带 `WWW-Authenticate: Bearer`。退出复用成功鉴权后的原始 Bearer 值，只撤销
+  当前 Token，返回无 body 的 `204`。

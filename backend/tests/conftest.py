@@ -2,8 +2,11 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 import pytest
+from fastapi.testclient import TestClient
 
+from backend.app.api.dependencies import AppContainer
 from backend.app.domain.models import User
+from backend.app.main import create_app
 from backend.app.memory import InMemoryStore
 from backend.app.services.auth import AuthService
 
@@ -43,3 +46,8 @@ def auth_service(store: InMemoryStore, fixed_now: datetime) -> AuthService:
         clock=lambda: fixed_now,
         token_ttl=86_400,
     )
+
+
+@pytest.fixture
+def client(auth_service: AuthService) -> TestClient:
+    return TestClient(create_app(container=AppContainer(auth_service=auth_service)))
