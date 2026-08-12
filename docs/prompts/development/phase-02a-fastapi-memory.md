@@ -525,3 +525,66 @@ client，证明账号/session/messages 隔离。记录首次 FAIL 与复审 pend
   client 得到 409，直接证明失败 client 的账号泄露。修复后失败 fixture 内部新建 Store、AuthService、ChatService
   和 AppContainer；普通 client 可以独立创建并提交两条消息，而失败 client 的相同用户 session 只得到 503 且历史为空。
 - 复审结论：待独立审查；本记录只保留首次 FAIL、RED/GREEN 和验证证据，不声明复审通过。
+
+## 18. Task 11：可选 OpenAI Responses API Adapter（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase 02A Task11：添加 optional OpenAI adapters。默认必须仍是 mock，不需要 API Key，不联网。
+先用 Fake OpenAI client 写 RED 测试，锁定 responses.parse 的 structured output 调用形状、
+responses.create 的 tutor 调用形状、SDK max_retries=0、一次 transient retry、non-transient 不重试、
+错误映射、usage/output 校验、mock app 不构造 OpenAI client、live test 默认 skip、.env.example 和
+.gitignore 的秘密边界。随后最小实现 backend/app/ai/openai_adapters.py、Settings 和 app wiring。
+不要创建 .env，不写真实 Key，不声称 live 通过。完成后运行 focused/full/Ruff/diff/secret scan，提交并推送。
+```
+
+### TDD 证据与边界说明
+
+- RED：新增 OpenAI adapter 测试后，目标测试因缺少 `backend.app.ai.openai_adapters`、Settings 字段和
+  app wiring 失败。测试使用 Fake Client，不访问网络、不需要 API Key。
+- GREEN：`OpenAIProblemAnalyzer` 使用 `responses.parse(..., text_format=PydanticModel)` 解析四字段
+  `ProblemAssessment`；`OpenAITutorProvider` 使用 `instructions=request.system_prompt` 和
+  `input=request.user_message` 调用 Tutor，并把 `output_text` 与 usage 映射为 `TutorResponse`。
+- 重试边界：SDK client 由 app factory 以 `max_retries=0` 构造；Adapter 自己只对连接、超时、限流和
+  5xx 错误重试一次，总尝试最多 2 次。认证、权限、请求错误和无效响应不重试。
+- 安全边界：`.env.example` 只有空模板和默认值；`.gitignore` 精确忽略 `.env`，仍允许 `.env.example`
+  入库。真实 OpenAI live 测试有 `openai_live` marker，无 Key 或未显式启用时跳过。
+- 独立审查：Task11 复审为 SPEC PASS / CODE PASS，无 Critical、Important 或 Minor 发现。全量离线验证为
+  `142 passed, 2 skipped`；Ruff 和 `git diff --check` 通过；secret scan 未发现真实 Key。
+
+## 19. Task 12：运行文档、阶段验收和完整验证（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+完成 Phase 02A Task12：编写真实运行说明、更新 README、补齐阶段 Prompt 存档，并执行 Mock 服务人工冒烟、
+全套离线测试、Ruff、diff check、秘密扫描和图表存档检查。文档必须说明 Python 3.11+、安装命令、
+Mock 启动、/docs 操作流、OpenAI 配置但不含真实 Key、错误码、重启清空、测试命令、Phase 02B 交接和
+已知限制。学习者需用自己的话回答 5 个验收问题后再提交。
+```
+
+### 验收记录
+
+- 文档新增 `docs/08-fastapi-memory-backend.md`，README 指向 Phase 02A 运行手册和 Prompt 存档。
+- Mock 服务人工冒烟首次发现文档指定的 `backend.app.main:app` 启动入口不存在。按 TDD 新增
+  `test_asgi_app_entrypoint_imports_without_external_services`，RED 为 `ImportError: cannot import name 'app'`；
+  随后最小补充模块级 `app = create_app()`，使 Uvicorn 文档命令可真实运行。
+- Mock 冒烟通过：`/health`、注册、登录、创建会话、发送消息、读取历史、退出均成功，退出后的同一 Token
+  访问受保护接口返回 401。
+
+### 学习验收答案（教学归纳版）
+
+1. Router 不应该直接操作内存字典，因为 Router 的职责是处理 HTTP 请求、响应模型、鉴权依赖和状态码。
+   数据读写应交给 Service 和 Repository。这样后续把内存字典换成 PostgreSQL 时，不需要重写 API 路由。
+2. OpenAI Analyzer 返回的 JSON 仍是不可信输入，因为 LLM 可能缺字段、类型错误、越界、逻辑不一致，或被用户
+   消息中的 prompt injection 影响。结构化输出只改善格式，不等于内容安全；后端仍必须用 Pydantic、领域模型和
+   教学规则重新校验。
+3. 一轮聊天必须等 Tutor 成功后才提交，因为用户消息、助手消息和学生能力状态更新是一个整体。如果先保存一部分
+   再失败，就会产生半回合数据或错误学习状态。成功后一次性提交，失败时零写入，才能保持原子性。
+4. Mock Provider 用在默认离线测试、业务流程测试、本地开发和 CI 默认路径，因为它免费、确定、不联网、不需要
+   API Key。真实 OpenAI Provider 只用于显式启用的 `openai_live` 测试或手动 live smoke，因为它依赖网络、
+   额度和真实 Key，不能影响默认测试稳定性。
+5. Phase 02B 可以替换 Repository 而不重写 Router，因为 Router 只依赖 Service，Service 只依赖 Repository
+   Protocol。只要 PostgreSQL Repository 实现与内存 Repository 相同的方法合同，HTTP API 层就不需要知道底层
+   存储已经更换。

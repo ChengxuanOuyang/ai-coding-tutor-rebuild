@@ -16,3 +16,11 @@ def test_fastapi_app_modules_import() -> None:
 
     assert backend.app.config.__name__ == "backend.app.config"
     assert backend.app.main.__name__ == "backend.app.main"
+
+
+def test_asgi_app_entrypoint_imports_without_external_services() -> None:
+    from fastapi import FastAPI
+
+    from backend.app.main import app
+
+    assert isinstance(app, FastAPI)

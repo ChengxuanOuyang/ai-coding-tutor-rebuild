@@ -82,3 +82,6 @@ def _create_configured_container(settings: Settings) -> AppContainer:
             timeout_seconds=settings.openai_timeout_seconds,
         ),
     )
+
+
+app = create_app()
