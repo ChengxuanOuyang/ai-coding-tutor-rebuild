@@ -2,6 +2,7 @@ from datetime import timedelta
 
 import pytest
 
+import backend.app.services.auth as auth_module
 from backend.app.domain.errors import AuthenticationError, ConflictError
 from backend.app.security import (
     digest_token,
@@ -73,6 +74,41 @@ async def test_login_unknown_email_and_wrong_password_have_the_same_error(
         wrong_password.value.code,
         wrong_password.value.safe_message,
     ) == ("invalid_credentials", "Invalid email or password")
+
+
+@pytest.mark.asyncio
+async def test_login_validates_a_password_hash_for_missing_and_wrong_credentials(
+    auth_service: AuthService,
+    store,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    password = "fixture password that is long enough"
+    user = await auth_service.register(
+        email="student@example.com",
+        username="student",
+        password=password,
+        self_programming_level=2,
+        self_maths_level=3,
+    )
+    stored_user = await store.users.get(user.id)
+    assert stored_user is not None
+    verified_hashes: list[str] = []
+
+    def record_verification(candidate: str, password_hash: str) -> bool:
+        del candidate
+        verified_hashes.append(password_hash)
+        return False
+
+    monkeypatch.setattr(auth_module, "verify_password", record_verification)
+
+    with pytest.raises(AuthenticationError):
+        await auth_service.login(email="missing@example.com", password=password)
+    with pytest.raises(AuthenticationError):
+        await auth_service.login(email="student@example.com", password=password)
+
+    assert len(verified_hashes) == 2
+    assert verified_hashes[1] == stored_user.password_hash
+    assert verified_hashes[0] != stored_user.password_hash
 
 
 @pytest.mark.asyncio

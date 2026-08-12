@@ -13,6 +13,8 @@ from backend.app.security import (
     verify_password,
 )
 
+DUMMY_PASSWORD_HASH = hash_password("invalid credentials dummy password")
+
 
 @dataclass(frozen=True)
 class IssuedToken:
@@ -60,7 +62,9 @@ class AuthService:
 
     async def login(self, *, email: str, password: str) -> IssuedToken:
         user = await self._users.get_by_email(email)
-        if user is None or not verify_password(password, user.password_hash):
+        password_hash = DUMMY_PASSWORD_HASH if user is None else user.password_hash
+        password_valid = verify_password(password, password_hash)
+        if user is None or not password_valid:
             raise AuthenticationError("invalid_credentials", "Invalid email or password")
 
         token = self._token_factory()

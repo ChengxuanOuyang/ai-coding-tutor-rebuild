@@ -238,3 +238,23 @@ clock/TTL/token factory 的 AuthService。明文 Token 只可从 login 返回，
   被撤销及失去用户的 Token 统一为稳定的无效 Token 错误。过期 Token 在拒绝前删除，退出会先认证并只
   删除当前摘要，保留同一用户的其他 Token。
 - 重构：GREEN 后 Ruff 指出安全模块的标准库导入排序和测试超长行；只整理导入及换行，未改变行为。
+
+### Task 4 正式审查纠偏（2026-08-12，复审待定）
+
+```text
+修复 Task 4 正式审查发现的登录失败路径时序枚举风险，不进入 Task 5。
+先写不依赖耗时阈值的 RED：以 monkeypatch 记录 password verify 调用，证明未知邮箱与错误密码都必须
+执行一次校验。实现一个只初始化一次的 dummy password hash；未知邮箱使用它、已知用户使用该用户 hash，
+两条路径再统一抛相同 AuthenticationError。同步纠正审计报告中在正式审查前预写的 PASS，不得写入任何
+复审成功结论。完成后记录 RED/GREEN，并运行聚焦与全量验证。
+```
+
+- 正式审查 FAIL 发现 1：登录条件使用 `user is None or not verify_password(...)`；Python 的短路使未知
+  邮箱不执行 Argon2，而错误密码会执行，产生可被大量采样利用的时序差异。
+- RED：新增 monkeypatch 调用记录测试，先对不存在邮箱、再对错误密码登录；修复前记录仅有一次校验，
+  断言 `len(verified_hashes) == 2` 以 `1 != 2` 失败。测试不测真实耗时，也不输出密码或 Token。
+- 正式审查 FAIL 发现 2：Task 4 报告在正式审查发生前错误地写入 `Independent Review PASS`；该段已删除，
+  报告现明确记录首次正式审查 FAIL 与复审待定。
+- GREEN：`DUMMY_PASSWORD_HASH` 在模块加载时仅构造一次；登录先选择用户 hash 或 dummy hash，再无条件
+  调用一次 `verify_password()`，最后统一判断 user/password validity。新增 RED 回归测试变为通过；正式
+  复审结论仍待独立审查，不在此处预写通过。
