@@ -149,6 +149,7 @@ class InMemoryStore:
         self._tokens: dict[str, AuthToken] = {}
         self._sessions: dict[UUID, ChatSession] = {}
         self._messages: dict[UUID, ChatMessage] = {}
+        self._user_locks: dict[UUID, asyncio.Lock] = {}
         self._session_locks: dict[UUID, asyncio.Lock] = {}
         self.users = InMemoryUserRepository(self)
         self.tokens = InMemoryTokenRepository(self)
@@ -160,6 +161,13 @@ class InMemoryStore:
         if lock is None:
             lock = asyncio.Lock()
             self._session_locks[session_id] = lock
+        return lock
+
+    def user_lock(self, user_id: UUID) -> asyncio.Lock:
+        lock = self._user_locks.get(user_id)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._user_locks[user_id] = lock
         return lock
 
     def chat_uow(self) -> InMemoryChatUnitOfWork:

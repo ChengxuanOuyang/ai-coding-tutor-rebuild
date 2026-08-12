@@ -437,3 +437,30 @@ ownership、state evolution。
   同会话请求在第一回合提交后才读取历史与用户状态；`InMemoryStore` 继续按 UUID 各自维护不同 session 的锁。
 - 重试边界：没有在本任务把 `retry_once` 包进 Analyzer 或 Tutor。Task 9 批准数据流未列出重试；Task 8 仅提供
   通用策略，真实上游适配器将在后续 Task 11 按瞬时错误分类接入，避免重复重试或在 Mock 路径引入等待。
+
+### Task 9 严格审查纠偏（2026-08-12，复审待定）
+
+```text
+Task9 严格审查 FAIL：修复同一 User 跨 session 的 EMA 丢失、未校验的 TutorResponse，以及按正文而不是
+Prompt 序列化长度预算历史。每项先写确定性 RED；采用 user lock → session lock 的固定顺序，禁止全局锁；
+Tutor 结果在 stage 前严格校验；历史必须按最终转义后的序列化长度保留最新连续后缀，不能交给 Prompt Builder
+从开头截断。完成后记录首次 FAIL 与复审待定，不预写 PASS。
+```
+
+- 首次严格审查 FAIL（Critical）：原实现只持有 session 锁。两个属于同一 User 的不同 session 可同时读取同一
+  effective level，分别计算 EMA 后后写者覆盖前者，丢失一次学习状态更新。RED 使用首个 Tutor barrier 固定该
+  交错：修复前第二个 session 已进入 Tutor，最终只保留一次更新。
+- 修复：`InMemoryStore` 新增按 User UUID 复用的 `asyncio.Lock`。完整回合统一先获取 user lock、再获取
+  session lock；因此不存在反向锁顺序。该用户的 Analyzer、状态读取、EMA、Tutor 和 UOW 均串行，而不同 User
+  持有不同锁仍可在首个 Tutor 被阻塞时完成自己的 session。GREEN 验证两次同难度更新得到串行两次 EMA 的
+  `2.144`，并验证不同用户不互相阻塞。
+- 首次严格审查 FAIL（Important）：`TutorResponse` 只靠类型注解，任意对象、空字符串、bool Token 或负 Token
+  都可能被保存，或者在属性访问时抛非稳定异常。新增参数化 RED 覆盖对象、空 content/provider/model、bool、
+  非整数和负数。服务现在要求非空字符串及非 bool 的非负整数 Token；所有无效响应在 stage 前统一抛出
+  `UpstreamInvalidResponseError("invalid_tutor_response", "Tutor returned an invalid response")`，并证明零写入。
+- 首次严格审查 FAIL（Important）：历史只累加正文长度；`user: `、`assistant: `、换行和 HTML 转义会让实际
+  Prompt 字段超过 4,000，随后 Prompt Builder 从开头截断，丢掉最新内容。`RecentHistory` 现从最新向后按
+  Prompt Builder 同样的 HTML 转义长度预算并恢复时间顺序。单条超限消息保留带明确 `[truncated]` 标志的最新尾部；
+  Analyzer 仍接收同一已选历史消息的完整用户文本。4,000 正文、角色前缀/换行精确边界、多条连续后缀和 HTML
+  转义回归均证明 Prompt Builder 不再进行额外截断，最新 sentinel 保留。
+- 复审结论：待独立审查；本记录只保留首次 FAIL、RED/GREEN 和当前验证证据，不宣称复审通过。

@@ -1,3 +1,4 @@
+from asyncio import Lock
 from dataclasses import replace
 from datetime import timedelta
 from inspect import iscoroutinefunction
@@ -285,3 +286,15 @@ async def test_session_lock_is_reused_for_the_same_uuid() -> None:
 
     assert store.session_lock(session_id) is store.session_lock(session_id)
     assert store.session_lock(session_id) is not store.session_lock(uuid4())
+
+
+@pytest.mark.asyncio
+async def test_user_lock_is_reused_for_the_same_uuid() -> None:
+    from backend.app.memory import InMemoryStore
+
+    store = InMemoryStore()
+    user_id = uuid4()
+
+    assert isinstance(store.user_lock(user_id), Lock)
+    assert store.user_lock(user_id) is store.user_lock(user_id)
+    assert store.user_lock(user_id) is not store.user_lock(uuid4())

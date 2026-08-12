@@ -64,6 +64,7 @@ def client(auth_service: AuthService, store: InMemoryStore) -> TestClient:
                     analyzer=MockProblemAnalyzer(),
                     tutor=MockTutorProvider(),
                     chat_uow_factory=store.chat_uow,
+                    user_lock_factory=store.user_lock,
                     session_lock_factory=store.session_lock,
                 ),
             )

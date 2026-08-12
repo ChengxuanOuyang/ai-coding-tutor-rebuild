@@ -39,6 +39,7 @@ def create_default_container(settings: Settings | None = None) -> AppContainer:
             analyzer=MockProblemAnalyzer(),
             tutor=MockTutorProvider(),
             chat_uow_factory=store.chat_uow,
+            user_lock_factory=store.user_lock,
             session_lock_factory=store.session_lock,
             clock=lambda: datetime.now(UTC),
         ),

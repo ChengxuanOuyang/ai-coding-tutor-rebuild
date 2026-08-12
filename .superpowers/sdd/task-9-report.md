@@ -35,3 +35,24 @@ The default application container and shared API test container now pass the sam
 session lock, UOW, Mock Analyzer and Mock Tutor to `ChatService`. This is wiring required to preserve the existing
 application factory behavior after the service constructor gained the Task 9 dependencies. No chat HTTP endpoint
 or public response schema was added; those remain Task 10 work.
+
+## Strict review remediation (re-review pending)
+
+The initial strict review found one critical and two important gaps. This section records the remediation; it is
+not an independent re-review pass.
+
+- **Critical — cross-session lost EMA:** session locks did not serialize two sessions owned by the same User. The
+  store now owns a reusable lock per User UUID. Every turn takes `user lock -> session lock` in this fixed order,
+  holds both across the entire turn, and releases both on every failure. Barrier tests prove two same-user sessions
+  produce the two-step serial EMA result and that different users do not block each other.
+- **Important — untrusted TutorResponse:** the service now requires an actual `TutorResponse`, non-empty string
+  content/provider/model, and non-bool non-negative integer token counts. Invalid values consistently raise
+  `UpstreamInvalidResponseError("invalid_tutor_response", "Tutor returned an invalid response")` before staging;
+  parameterized tests verify no message or User mutation.
+- **Important — serialized history budget:** the recent-history helper now owns selection and Prompt serialization.
+  It counts role prefixes, separators, and the same HTML escaping used by Prompt Builder. It selects the newest
+  contiguous suffix; a single oversized newest message is explicitly tail-truncated within that helper so Prompt
+  Builder does not truncate from the start. The Analyzer receives user-only full text from that same selected set.
+
+The focused remediation suite ran `65 passed` with Ruff clean. Full-suite, diff, and sensitive-data checks are
+recorded with the remediation commit. Re-review remains pending.
