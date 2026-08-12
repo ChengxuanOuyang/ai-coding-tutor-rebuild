@@ -316,3 +316,21 @@ provider/post-message。追加 Prompt/TDD 证据，运行 focused/full/Ruff/diff
 - GREEN/回归：聚焦 sessions + auth API 为 `10 passed`；全套离线测试为 `76 passed`；任务 Ruff 输出
   `All checks passed!`；`git diff --check` 无输出。测试覆盖双用户隔离、未知/非 owner 完全相同 404、
   会话与消息稳定创建时间排序、空历史、标题边界、无效 UUID 的安全 422，以及两个默认 app 实例的内存隔离。
+
+### Task 6 审查纠偏：时间并列排序（2026-08-12，复审待定）
+
+```text
+Task6 审查 FAIL：memory.py 的 session/message list 只按 created_at 排序，时间并列时会依赖字典插入顺序。
+先用固定相同 timestamp、反向插入和可预测 UUID 添加 RED 回归，覆盖 Repository 的 session/message list
+及 API 的 session list；保持批准的 created_at 升序主排序。随后仅用 UUID 整数作为升序次键，运行聚焦、
+全量、Ruff、diff 和敏感扫描。记录真实首次审查 FAIL，不能预写复审 PASS。
+```
+
+- 首次审查 FAIL：`InMemorySessionRepository.list_for_user()` 与
+  `InMemoryMessageRepository.list_for_session()` 的 key 都只有 `created_at`。Python 稳定排序会保留字典插入
+  顺序，故同一时间戳的返回顺序可由写入顺序改变，未满足稳定的 API/Repository 合同。
+- RED：固定相同 UTC timestamp，以较大 UUID 先插入、较小 UUID 后插入；Repository 的 session/message
+  断言以及 session API 断言均失败，实际先返回较大 UUID，证明失败来自缺失的显式次键。
+- GREEN：两个 Repository 均改为 `(created_at, id.int)` 升序，保持既有创建时间升序方向；UOW 既有测试
+  的随机 UUID 与同 timestamp 的插入顺序假设不再成立，改为显式递增 UUID，使其继续只测试原子提交。
+- 本次纠偏的复审结论待独立审查，不在此处预写通过。

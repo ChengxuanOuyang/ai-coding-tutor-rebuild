@@ -25,3 +25,17 @@ No analyzer, provider, message-posting, or Chat Unit of Work orchestration was a
 - Unknown and non-owned session IDs both return `404` with identical `session_not_found` code and safe message.
 - Message-history response omits internal assessment, hint, provider, model, and token fields.
 - Each default FastAPI app instance creates its own in-memory container.
+
+## First review correction: equal-timestamp ordering
+
+The first Task 6 review **failed** because session and message lists sorted only by `created_at`. Equal timestamps
+therefore inherited dictionary insertion order, which is not an explicit stable contract.
+
+- RED used identical fixed UTC timestamps, reverse insertion, and deterministic UUIDs. Repository assertions for
+  sessions and messages, plus the session-list API assertion, returned the higher UUID first before the correction.
+- The minimal fix sorts both repositories by `(created_at, id.int)`, ascending. This preserves the approved primary
+  creation-time ascending order and makes ties deterministic.
+- The former UOW atomic-commit test used random UUIDs with equal timestamps and accidentally asserted insertion order;
+  its fixtures now use ascending deterministic UUIDs so it remains scoped to atomic commit.
+
+Independent re-review is pending; this report does not claim a review pass.

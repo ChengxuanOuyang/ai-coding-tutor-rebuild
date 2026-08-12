@@ -4,7 +4,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from backend.app.domain.models import ChatMessage, MessageRole, ProblemAssessment
+from backend.app.domain.models import ChatMessage, ChatSession, MessageRole, ProblemAssessment
 from backend.app.main import create_app
 from backend.app.memory import InMemoryStore
 
@@ -36,6 +36,38 @@ def test_sessions_are_private_and_ordered(
         "code": "session_not_found",
         "message": "Session not found",
     }
+
+
+@pytest.mark.asyncio
+async def test_session_list_orders_equal_timestamps_by_uuid_at_the_api_boundary(
+    client: TestClient,
+    register_and_login,
+    store: InMemoryStore,
+) -> None:
+    headers = register_and_login("student@example.com", "student")
+    user_id = UUID(client.get("/users/me", headers=headers).json()["id"])
+    timestamp = datetime(2026, 8, 12, tzinfo=UTC)
+    lower = ChatSession(
+        UUID("00000000-0000-0000-0000-000000000005"),
+        user_id,
+        "Lower",
+        timestamp,
+        timestamp,
+    )
+    higher = ChatSession(
+        UUID("00000000-0000-0000-0000-000000000006"),
+        user_id,
+        "Higher",
+        timestamp,
+        timestamp,
+    )
+    await store.sessions.add(higher)
+    await store.sessions.add(lower)
+
+    response = client.get("/sessions", headers=headers)
+
+    assert response.status_code == 200
+    assert [session["id"] for session in response.json()] == [str(lower.id), str(higher.id)]
 
 
 def test_session_titles_are_normalized_and_validated(

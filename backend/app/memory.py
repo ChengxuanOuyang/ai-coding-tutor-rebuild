@@ -64,7 +64,7 @@ class InMemorySessionRepository:
         sessions = (
             session for session in self._store._sessions.values() if session.user_id == user_id
         )
-        return sorted(sessions, key=lambda session: session.created_at)
+        return sorted(sessions, key=lambda session: (session.created_at, session.id.int))
 
 
 class InMemoryMessageRepository:
@@ -80,7 +80,7 @@ class InMemoryMessageRepository:
             for message in self._store._messages.values()
             if message.session_id == session_id
         )
-        return sorted(messages, key=lambda message: message.created_at)
+        return sorted(messages, key=lambda message: (message.created_at, message.id.int))
 
 
 class InMemoryChatUnitOfWork:

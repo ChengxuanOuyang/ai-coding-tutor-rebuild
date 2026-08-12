@@ -1,7 +1,7 @@
 from dataclasses import replace
 from datetime import timedelta
 from inspect import iscoroutinefunction
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 
@@ -104,6 +104,41 @@ async def test_message_repository_sorts_by_creation_time(user_factory, fixed_now
 
 
 @pytest.mark.asyncio
+async def test_session_and_message_repository_sort_equal_timestamps_by_uuid(
+    user_factory,
+    fixed_now,
+) -> None:
+    from backend.app.memory import InMemoryStore
+
+    store = InMemoryStore()
+    user = user_factory()
+    await store.users.add(user)
+    lower_session_id = UUID("00000000-0000-0000-0000-000000000001")
+    higher_session_id = UUID("00000000-0000-0000-0000-000000000002")
+    lower_session = ChatSession(lower_session_id, user.id, "Lower", fixed_now, fixed_now)
+    higher_session = ChatSession(higher_session_id, user.id, "Higher", fixed_now, fixed_now)
+    await store.sessions.add(higher_session)
+    await store.sessions.add(lower_session)
+
+    lower_message_id = UUID("00000000-0000-0000-0000-000000000003")
+    higher_message_id = UUID("00000000-0000-0000-0000-000000000004")
+    lower_message = ChatMessage(
+        lower_message_id, lower_session.id, MessageRole.USER, "Lower", fixed_now
+    )
+    higher_message = ChatMessage(
+        higher_message_id, lower_session.id, MessageRole.ASSISTANT, "Higher", fixed_now
+    )
+    await store.messages.add(higher_message)
+    await store.messages.add(lower_message)
+
+    assert await store.sessions.list_for_user(user.id) == [lower_session, higher_session]
+    assert await store.messages.list_for_session(lower_session.id) == [
+        lower_message,
+        higher_message,
+    ]
+
+
+@pytest.mark.asyncio
 async def test_token_lookup_and_expired_token_deletion(user_factory, fixed_now) -> None:
     from backend.app.memory import InMemoryStore
 
@@ -125,9 +160,19 @@ async def test_chat_uow_discards_all_staged_changes_without_commit(user_factory,
     user = user_factory()
     await store.users.add(user)
     session = ChatSession(uuid4(), user.id, None, fixed_now, fixed_now)
-    user_message = ChatMessage(uuid4(), session.id, MessageRole.USER, "Help", fixed_now)
+    user_message = ChatMessage(
+        UUID("00000000-0000-0000-0000-000000000007"),
+        session.id,
+        MessageRole.USER,
+        "Help",
+        fixed_now,
+    )
     assistant_message = ChatMessage(
-        uuid4(), session.id, MessageRole.ASSISTANT, "Try this", fixed_now
+        UUID("00000000-0000-0000-0000-000000000008"),
+        session.id,
+        MessageRole.ASSISTANT,
+        "Try this",
+        fixed_now,
     )
     changed = replace(user, effective_programming_level=4.0, effective_maths_level=4.0)
 
@@ -147,9 +192,19 @@ async def test_chat_uow_commits_user_and_both_messages_together(user_factory, fi
     user = user_factory()
     await store.users.add(user)
     session = ChatSession(uuid4(), user.id, None, fixed_now, fixed_now)
-    user_message = ChatMessage(uuid4(), session.id, MessageRole.USER, "Help", fixed_now)
+    user_message = ChatMessage(
+        UUID("00000000-0000-0000-0000-000000000009"),
+        session.id,
+        MessageRole.USER,
+        "Help",
+        fixed_now,
+    )
     assistant_message = ChatMessage(
-        uuid4(), session.id, MessageRole.ASSISTANT, "Try this", fixed_now
+        UUID("00000000-0000-0000-0000-000000000010"),
+        session.id,
+        MessageRole.ASSISTANT,
+        "Try this",
+        fixed_now,
     )
     changed = replace(user, effective_programming_level=3.0)
 
