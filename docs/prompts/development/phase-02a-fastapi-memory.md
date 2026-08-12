@@ -288,3 +288,31 @@ digest。422 必须保留可定位的安全验证信息且不得回显密码。�
 - Bearer 校正：缺失、`Basic` 畸形和未知 Bearer 凭证都进入同一 AuthService `invalid_token` 路径，响应为
   `401`、同一安全错误代码，并带 `WWW-Authenticate: Bearer`。退出复用成功鉴权后的原始 Bearer 值，只撤销
   当前 Token，返回无 body 的 `204`。
+
+## 14. Task 6：会话创建、列表、历史和所有权 API（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase 02A Task6。工作树 feature/phase-02a-fastapi-memory。严格 TDD，实现 ChatService 的
+create/list sessions/list messages 三个精确 async 公共方法和 sessions router/schemas/container wiring。
+所有权必须在查询边界 enforced；不存在与他人资源完全同 404 code/message，防枚举。标题 None/去空白/
+空白结果的合同按 spec/plan推导并测试，最大120，严格请求字段；UUID path 无效时安全422。会话列表排序按
+批准规格；消息公共响应只暴露计划允许字段，稳定排序；空历史。认证复用 Task5。无 Task7+ analyzer/
+provider/post-message。追加 Prompt/TDD 证据，运行 focused/full/Ruff/diff/sensitive，提交并推送。
+```
+
+### TDD 证据与校正
+
+- RED：新增 `test_sessions_api.py` 后运行
+  `.venv/bin/python -m pytest backend/tests/test_sessions_api.py -v`，收集到 5 项并全部按预期失败：
+  未注册 Router 的 `POST /sessions` 和 UUID 路径均为 404，且 `backend.app.services.chat` 不存在。
+- GREEN：`ChatService` 只公开三个异步方法：创建、按用户列出会话、以及在 `get_for_user()` 查询边界
+  校验所有权后读取消息。未知会话和非所有者都构造相同的
+  `NotFoundError("session_not_found", "Session not found")`，不泄露资源存在性。
+- 标题校正：Schema 允许省略或显式 `null`，拒绝额外字段；Service 对非空标题先 `strip()`，空白结果
+  存为 `None`，并在去空白后执行 120 字符上限。响应消息仅序列化 `id`、`session_id`、`role`、`content`
+  和 `created_at`，不公开评估、提示等级、Provider、模型或 Token 用量。
+- GREEN/回归：聚焦 sessions + auth API 为 `10 passed`；全套离线测试为 `76 passed`；任务 Ruff 输出
+  `All checks passed!`；`git diff --check` 无输出。测试覆盖双用户隔离、未知/非 owner 完全相同 404、
+  会话与消息稳定创建时间排序、空历史、标题边界、无效 UUID 的安全 422，以及两个默认 app 实例的内存隔离。

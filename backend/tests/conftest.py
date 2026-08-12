@@ -9,6 +9,7 @@ from backend.app.domain.models import User
 from backend.app.main import create_app
 from backend.app.memory import InMemoryStore
 from backend.app.services.auth import AuthService
+from backend.app.services.chat import ChatService
 
 
 @pytest.fixture
@@ -49,5 +50,39 @@ def auth_service(store: InMemoryStore, fixed_now: datetime) -> AuthService:
 
 
 @pytest.fixture
-def client(auth_service: AuthService) -> TestClient:
-    return TestClient(create_app(container=AppContainer(auth_service=auth_service)))
+def client(auth_service: AuthService, store: InMemoryStore) -> TestClient:
+    return TestClient(
+        create_app(
+            container=AppContainer(
+                auth_service=auth_service,
+                chat_service=ChatService(
+                    sessions=store.sessions,
+                    messages=store.messages,
+                ),
+            )
+        )
+    )
+
+
+@pytest.fixture
+def register_and_login(client: TestClient) -> Callable[[str, str], dict[str, str]]:
+    def register(email: str, username: str) -> dict[str, str]:
+        response = client.post(
+            "/auth/register",
+            json={
+                "email": email,
+                "username": username,
+                "password": "correct horse battery",
+                "self_programming_level": 2,
+                "self_maths_level": 3,
+            },
+        )
+        assert response.status_code == 201
+        login = client.post(
+            "/auth/login",
+            json={"email": email, "password": "correct horse battery"},
+        )
+        assert login.status_code == 200
+        return {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    return register

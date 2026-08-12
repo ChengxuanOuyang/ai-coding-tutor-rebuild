@@ -9,6 +9,7 @@ from backend.app.config import Settings
 from backend.app.domain.models import User
 from backend.app.memory import InMemoryStore
 from backend.app.services.auth import AuthService
+from backend.app.services.chat import ChatService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -16,6 +17,7 @@ bearer_scheme = HTTPBearer(auto_error=False)
 @dataclass(frozen=True)
 class AppContainer:
     auth_service: AuthService
+    chat_service: ChatService
 
 
 def create_default_container(settings: Settings | None = None) -> AppContainer:
@@ -27,7 +29,12 @@ def create_default_container(settings: Settings | None = None) -> AppContainer:
             tokens=store.tokens,
             clock=lambda: datetime.now(UTC),
             token_ttl=resolved_settings.token_ttl_seconds,
-        )
+        ),
+        chat_service=ChatService(
+            sessions=store.sessions,
+            messages=store.messages,
+            clock=lambda: datetime.now(UTC),
+        ),
     )
 
 

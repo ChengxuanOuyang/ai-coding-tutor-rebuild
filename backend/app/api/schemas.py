@@ -2,7 +2,17 @@ from datetime import datetime
 from typing import Annotated
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, StrictInt, StringConstraints
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    StrictInt,
+    StringConstraints,
+    field_validator,
+)
+
+from backend.app.domain.models import MessageRole
 
 Username = Annotated[str, StringConstraints(pattern=r"^[A-Za-z0-9_.-]{3,32}$")]
 Password = Annotated[str, StringConstraints(min_length=12, max_length=128)]
@@ -59,3 +69,33 @@ class LoginResponse(BaseModel):
     access_token: str
     token_type: str
     expires_at: datetime
+
+
+class CreateSessionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+
+    @field_validator("title")
+    @classmethod
+    def validate_title(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        if len(value.strip()) > 120:
+            raise ValueError("String should have at most 120 characters")
+        return value
+
+
+class SessionResponse(BaseModel):
+    id: UUID
+    title: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class MessageResponse(BaseModel):
+    id: UUID
+    session_id: UUID
+    role: MessageRole
+    content: str
+    created_at: datetime
