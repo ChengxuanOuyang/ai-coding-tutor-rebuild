@@ -80,21 +80,28 @@ def client(auth_service: AuthService, store: InMemoryStore) -> TestClient:
 
 
 @pytest.fixture
-def client_with_failing_tutor(auth_service: AuthService, store: InMemoryStore) -> TestClient:
+def client_with_failing_tutor(fixed_now: datetime) -> TestClient:
     """An independent app container whose Tutor always fails upstream."""
+    failing_store = InMemoryStore()
+    failing_auth_service = AuthService(
+        users=failing_store.users,
+        tokens=failing_store.tokens,
+        clock=lambda: fixed_now,
+        token_ttl=86_400,
+    )
     return TestClient(
         create_app(
             container=AppContainer(
-                auth_service=auth_service,
+                auth_service=failing_auth_service,
                 chat_service=ChatService(
-                    users=store.users,
-                    sessions=store.sessions,
-                    messages=store.messages,
+                    users=failing_store.users,
+                    sessions=failing_store.sessions,
+                    messages=failing_store.messages,
                     analyzer=MockProblemAnalyzer(),
                     tutor=FailingTutor(),
-                    chat_uow_factory=store.chat_uow,
-                    user_lock_factory=store.user_lock,
-                    session_lock_factory=store.session_lock,
+                    chat_uow_factory=failing_store.chat_uow,
+                    user_lock_factory=failing_store.user_lock,
+                    session_lock_factory=failing_store.session_lock,
                 ),
             )
         )

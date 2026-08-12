@@ -3,6 +3,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from backend.app.ai.provider import TutorResponse
+from backend.app.main import create_app
 
 
 def test_chat_api_returns_visible_messages_without_hidden_state(client, logged_in_session) -> None:
@@ -158,6 +159,79 @@ def test_unexpected_error_has_a_safe_internal_response(
         "error": {"code": "internal_error", "message": "Internal server error"}
     }
     assert "do-not-expose" not in response.text
+
+
+def test_global_cors_wraps_safe_500_and_preserves_standard_error_responses(
+    client, logged_in_session, monkeypatch
+) -> None:
+    headers, session_id = logged_in_session
+    origin = "https://frontend.example"
+    app = create_app(
+        container=client.app.state.container,
+        cors_origins=(origin,),
+    )
+
+    async def unexpected_failure(**_: object) -> object:
+        raise RuntimeError("provider secret: do-not-expose")
+
+    monkeypatch.setattr(app.state.container.chat_service, "send_message", unexpected_failure)
+    with TestClient(app, raise_server_exceptions=False) as cors_client:
+        internal = cors_client.post(
+            f"/sessions/{session_id}/messages",
+            json={"content": "Help"},
+            headers={**headers, "Origin": origin},
+        )
+        missing = cors_client.get("/not-found", headers={"Origin": origin})
+        invalid = cors_client.post(
+            f"/sessions/{session_id}/messages",
+            json={"content": "  "},
+            headers={**headers, "Origin": origin},
+        )
+
+    assert internal.status_code == 500
+    assert internal.json() == {
+        "error": {"code": "internal_error", "message": "Internal server error"}
+    }
+    assert "do-not-expose" not in internal.text
+    assert missing.status_code == 404
+    assert invalid.status_code == 422
+    assert [response.headers["access-control-allow-origin"] for response in (
+        internal,
+        missing,
+        invalid,
+    )] == [origin, origin, origin]
+
+
+def test_failing_tutor_client_is_fully_isolated_from_the_default_client(
+    client, client_with_failing_tutor, logged_in_session, register_and_login
+) -> None:
+    failing_headers, failing_session_id = logged_in_session
+    normal_headers = register_and_login("student@example.com", "student")
+    normal_session = client.post("/sessions", json={"title": "Normal"}, headers=normal_headers)
+
+    assert normal_session.status_code == 201
+    normal_turn = client.post(
+        f"/sessions/{normal_session.json()['id']}/messages",
+        json={"content": "Help"},
+        headers=normal_headers,
+    )
+    failing_turn = client_with_failing_tutor.post(
+        f"/sessions/{failing_session_id}/messages",
+        json={"content": "Help"},
+        headers=failing_headers,
+    )
+    normal_history = client.get(
+        f"/sessions/{normal_session.json()['id']}/messages", headers=normal_headers
+    )
+    failing_history = client_with_failing_tutor.get(
+        f"/sessions/{failing_session_id}/messages", headers=failing_headers
+    )
+
+    assert normal_turn.status_code == 201
+    assert failing_turn.status_code == 503
+    assert normal_history.status_code == failing_history.status_code == 200
+    assert len(normal_history.json()) == 2
+    assert failing_history.json() == []
 
 
 def test_chat_operation_is_documented_in_openapi(client) -> None:

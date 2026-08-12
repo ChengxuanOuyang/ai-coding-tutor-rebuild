@@ -503,3 +503,25 @@ diff/sensitive，OpenAPI检查。提交 `feat: expose atomic tutoring chat API (
   空数组，作为 HTTP 层的零写确认。
 - 首轮 GREEN：`test_chat_api.py` 为 `6 passed`；关联 auth/session/chat API 套件为 `17 passed`。最终完整验证
   证据记录于 Task 10 报告；未在这里预写独立审查结论。
+
+### Task 10 审查纠偏（2026-08-12，复审待定）
+
+```text
+Task10审查FAIL，修2项，先确定性RED再最小修复：安全500经标准CORSMiddleware丢CORS头时，不得在错误
+handler硬编码来源；需让全局 CORS 包裹 ServerErrorMiddleware，同时保留 FastAPI 的 state/OpenAPI/TestClient。
+失败 Tutor fixture 必须新建 InMemoryStore、AuthService、ChatService 和容器；同一测试同时使用普通和失败
+client，证明账号/session/messages 隔离。记录首次 FAIL 与复审 pending，不预写通过结论。
+```
+
+- 首次审查 FAIL（P1）：FastAPI 的标准装配把 `ServerErrorMiddleware` 放在用户 middleware 之外，因此即使
+  采用普通 `app.add_middleware(CORSMiddleware, ...)`，由未预期 Exception handler 返回的 500 也会绕过 CORS。
+  RED 构造显式允许的 origin，并断言 RuntimeError 的安全 500、框架 404、以及请求 422 都带
+  `access-control-allow-origin`；修复前 `create_app()` 甚至没有可表达 CORS 配置的边界。
+- 修复：保留 `FastAPI` 实例并以其 `build_middleware_stack()` 的结果作为 `CORSMiddleware` 内层，令 CORS 位于
+  `ServerErrorMiddleware` 外侧。`cors_origins` 是显式参数，默认空元组且没有硬编码来源；只有调用方指定允许来源
+  时才启用。GREEN 证明 500 仍不泄露 RuntimeError detail，并且 404/422 行为与 CORS 头同时保留。
+- 首次审查 FAIL（P2）：`client_with_failing_tutor` 参数直接依赖普通 `store` 和 `auth_service` fixtures，两个
+  TestClient 可读取同一用户、Token、会话和消息。RED 在同一测试使用两个 client、以相同用户注册；修复前普通
+  client 得到 409，直接证明失败 client 的账号泄露。修复后失败 fixture 内部新建 Store、AuthService、ChatService
+  和 AppContainer；普通 client 可以独立创建并提交两条消息，而失败 client 的相同用户 session 只得到 503 且历史为空。
+- 复审结论：待独立审查；本记录只保留首次 FAIL、RED/GREEN 和验证证据，不声明复审通过。
