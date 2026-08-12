@@ -1,4 +1,8 @@
-def test_mock_provider_returns_deterministic_response() -> None:
+import pytest
+
+
+@pytest.mark.asyncio
+async def test_mock_provider_returns_deterministic_response() -> None:
     from backend.app.ai.mock_provider import MockTutorProvider
     from backend.app.ai.provider import TutorRequest, TutorResponse
 
@@ -8,8 +12,8 @@ def test_mock_provider_returns_deterministic_response() -> None:
         user_message="Why does the loop continue?",
     )
 
-    first = provider.generate(request)
-    second = provider.generate(request)
+    first = await provider.generate(request)
+    second = await provider.generate(request)
 
     assert first == second
     assert isinstance(first, TutorResponse)
@@ -20,11 +24,12 @@ def test_mock_provider_returns_deterministic_response() -> None:
     assert "condition" in first.content.lower()
 
 
-def test_mock_provider_does_not_require_network_or_credentials() -> None:
+@pytest.mark.asyncio
+async def test_mock_provider_does_not_require_network_or_credentials() -> None:
     from backend.app.ai.mock_provider import MockTutorProvider
     from backend.app.ai.provider import TutorRequest
 
-    response = MockTutorProvider().generate(
+    response = await MockTutorProvider().generate(
         TutorRequest(system_prompt="", user_message=""),
     )
 

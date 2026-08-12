@@ -363,3 +363,35 @@ False，不能声称语义智能。无网络、Key、随机性，不实现 Task8
   `same_problem=True`；空文本永远不是同一题。标点不被删除，因此相同标点文本可精确相等。
 - `is_elaboration` 的批准规格、计划和 Task7 简报均未提供固定判定。为避免无依据的语义推断，这个纯测试
   替身固定返回 `False`；后续真实 Analyzer 仍须经过既有 metadata 校验与跨字段不变量处理。
+
+## 16. Task 8：异步 Tutor Provider 迁移与一次重试策略（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase02A Task8。工作树 feature/phase-02a-fastapi-memory，禁止 main。完整读取 Task8
+简报、批准规格/计划、Phase01 provider/mock/cli/tests/types/prompt archive。严格 TDD：先迁移/新增测试
+产生有效 RED。TutorProvider async，Mock async deterministic，generic retry_once 恰好最多2 attempts；
+只 retry transient，non-transient不sleep，第二次异常原样传播；sleep注入，默认不得真实sleep的测试。
+考虑 CancelledError/BaseException 不应吞；类型注解泛型。CLI用 asyncio.run，Phase01 stdout JSON合同逐字段
+不变，错误/exit行为不意外变。查找所有 generate 调用同步点并迁移，不能留下 coroutine 泄漏。无 Task9
+chat orchestration、无 OpenAI。追加 Prompt/TDD/迁移决策。apply_patch。focused/full/Ruff/diff/sensitive，
+实际运行 CLI比对关键JSON（programming3 maths1 provider/model）。提交并推送。
+```
+
+### TDD 证据与迁移决策
+
+- RED：先把两个 Mock Provider 测试改为 `pytest.mark.asyncio` 并 `await generate()`，新增四个一次重试
+  测试。执行 `.venv/bin/python -m pytest backend/tests/test_mock_provider.py backend/tests/test_retry.py -v` 收集到
+  6 项；两个 Provider 测试按预期以 `TypeError: object TutorResponse can't be used in 'await' expression` 失败，
+  四个重试测试仅因 `backend.app.ai.retry` 不存在失败。
+- GREEN：`TutorProvider.generate()` 和 `MockTutorProvider.generate()` 都改为异步；Mock 内容、名称与 Token
+  估算未变，仍离线且确定。仓库内所有 `generate()` 调用点均已检查，CLI 是唯一同步调用点，现由异步
+  `_run(args)` await，`main()` 用 `asyncio.run()` 保持参数解析、JSON stdout 和 argparse 退出行为。
+- 重试边界：`retry_once` 用 `TypeVar` 保留任意异步操作返回类型。只捕获 `Exception`，因此
+  `asyncio.CancelledError` 等 `BaseException` 不会被吞掉；首个 transient 异常仅 sleep 一次后再调用一次，
+  第二次的异常不包裹、不转换。非 transient 异常直接原样抛出且不 sleep。测试将 sleep 注入为 async no-op，
+  所以测试没有真实等待；生产默认仍使用 `asyncio.sleep(0.25)`。
+- 聚焦 GREEN：Provider、Retry 和 CLI 测试为 `8 passed`；Ruff 对相关产品和测试文件输出
+  `All checks passed!`。完整套件、实际 CLI JSON、diff 和敏感信息扫描在提交前重新运行并记录在 Task 8
+  报告中。

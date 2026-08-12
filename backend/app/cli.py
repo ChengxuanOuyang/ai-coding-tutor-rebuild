@@ -1,4 +1,5 @@
 import argparse
+import asyncio
 import json
 
 from backend.app.ai.mock_provider import MockTutorProvider
@@ -33,8 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> None:
-    args = build_parser().parse_args()
+async def _run(args: argparse.Namespace) -> None:
     initial_state = StudentState(
         effective_programming_level=args.programming_level,
         effective_maths_level=args.maths_level,
@@ -55,7 +55,7 @@ def main() -> None:
         state=active_state,
         context=PromptContext(user_message=args.message),
     )
-    response = MockTutorProvider().generate(
+    response = await MockTutorProvider().generate(
         TutorRequest(system_prompt=system_prompt, user_message=args.message)
     )
     print(
@@ -73,6 +73,11 @@ def main() -> None:
             indent=2,
         )
     )
+
+
+def main() -> None:
+    args = build_parser().parse_args()
+    asyncio.run(_run(args))
 
 
 if __name__ == "__main__":

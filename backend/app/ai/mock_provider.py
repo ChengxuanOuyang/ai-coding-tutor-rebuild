@@ -9,7 +9,7 @@ class MockTutorProvider:
     provider_name = "mock"
     model_name = "deterministic-tutor-v1"
 
-    def generate(self, request: TutorRequest) -> TutorResponse:
+    async def generate(self, request: TutorRequest) -> TutorResponse:
         content = (
             "Focus on the loop condition: which value must change for it to become false? "
             "Trace that value for the first three iterations before changing the code."
