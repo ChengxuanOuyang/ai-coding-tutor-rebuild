@@ -27,6 +27,9 @@ dev = [
 testpaths = ["backend/tests"]
 addopts = "-q"
 asyncio_mode = "auto"
+markers = [
+  "openai_live: opt-in tests that make real OpenAI API calls",
+]
 
 [tool.ruff]
 target-version = "py311"
