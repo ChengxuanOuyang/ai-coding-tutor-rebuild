@@ -100,3 +100,28 @@ Tutor Provider 和最终提交。
 - [OpenAI Model guidance](https://developers.openai.com/api/docs/guides/latest-model)
 
 访问日期：2026-08-11。
+
+## 9. Task 1：FastAPI 依赖、配置与应用骨架（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase 02A 的任务 1：FastAPI 依赖、配置与应用骨架。
+先读取任务简报和相关现有代码，只修改 pyproject.toml、backend/app/config.py、
+backend/app/main.py、backend/tests/test_config.py、backend/tests/test_project_imports.py。
+先写能正常收集且因缺少目标模块失败的配置与健康检查测试；展示红灯原因。
+再按简报提供的 Settings 公共合同写最小实现，GET /health 不得调用 AI、不得读取 API Key，
+不要实现领域模型、认证、会话或 OpenAI 调用。完成后运行聚焦测试、完整测试、Ruff 和 diff check。
+```
+
+### TDD 证据与校正
+
+- 初次执行 `pytest backend/tests/test_config.py -v` 在收集阶段因环境尚未安装 `fastapi` 失败；
+  这不是目标行为的 RED。
+- 仅先声明并安装简报规定的依赖后重跑，3 项测试按预期 RED：
+  `ModuleNotFoundError: backend.app.config`（两项）与
+  `ModuleNotFoundError: backend.app.main`（一项）。
+- 最小 GREEN 实现只增加不可变 `Settings.from_env()`、`create_app()` 和返回
+  `{\"status\": \"ok\"}` 的 `GET /health`，未初始化 OpenAI 客户端或发起网络调用。
+- GREEN：聚焦测试与导入测试 `6 passed`；完整套件 `35 passed`；Ruff 输出
+  `All checks passed!`；`git diff --check` 无输出。
