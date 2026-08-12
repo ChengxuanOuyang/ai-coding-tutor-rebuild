@@ -207,3 +207,34 @@ commit 前不得有任何可见副作用；commit 必须先验证全部 staged �
   抛 `ValueError` 且没有字典写入；Repository 索引与所有权验证从 `email.strip().lower()` 和
   `username.casefold()` 重新计算，而不是信任 `username_key`。目标测试 `12 passed`，并显式确认
   `import backend.app.repositories` 成功。
+
+## 12. Task 4：密码、随机 Token 与 Auth Service（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase 02A 的任务 4：密码、随机 Token 与 Auth Service。
+只在 feature/phase-02a-fastapi-memory 的隔离 worktree 修改 backend/app/security.py、
+backend/app/services、backend/tests/conftest.py、backend/tests/test_auth_service.py 和本阶段 Prompt
+存档。先阅读批准规格、Task 4 简报、Repository/Memory 合同和已有归档。
+
+严格 TDD：先为密码哈希、只存 Token 摘要、登录凭证错误等价、当前 Token 定向注销、空/未知/过期
+Token 拒绝并清理、以及注册唯一性冲突写可收集测试；运行并确认 RED 仅来自尚未实现的服务包。随后
+实现 pwdlib recommended 哈希、secrets Token、SHA-256 摘要、hmac constant-time 比较和注入 UTC
+clock/TTL/token factory 的 AuthService。明文 Token 只可从 login 返回，不能进入 Repository、日志或
+归档；不实现 HTTP Router、环境读取或真实等待。完成后运行聚焦和完整测试、Ruff、diff check 与敏感
+模式扫描，并记录真实证据。
+```
+
+### TDD 证据与校正
+
+- RED：在新增 `test_auth_service.py` 和确定性 `store`/`auth_service` fixtures 后，执行
+  `.venv/bin/python -m pytest backend/tests/test_auth_service.py -v`；收集初始化仅因
+  `ModuleNotFoundError: No module named 'backend.app.services'` 失败，表明目标 Service 尚未实现。
+- GREEN：最小实现新增 `PasswordHash.recommended()` 包装、`secrets.token_urlsafe(32)`、SHA-256
+  Token 摘要和 `hmac.compare_digest`；AuthService 只写摘要，登录调用者获得 `IssuedToken` 中的明文。
+  可注入 UTC clock、TTL 和 token factory，故测试不读取环境也不 sleep。
+- 安全校正：未知邮箱和错误密码统一为完全相同的 `AuthenticationError` code/message；空、未知、过期、
+  被撤销及失去用户的 Token 统一为稳定的无效 Token 错误。过期 Token 在拒绝前删除，退出会先认证并只
+  删除当前摘要，保留同一用户的其他 Token。
+- 重构：GREEN 后 Ruff 指出安全模块的标准库导入排序和测试超长行；只整理导入及换行，未改变行为。

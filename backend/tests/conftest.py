@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 import pytest
 
 from backend.app.domain.models import User
+from backend.app.memory import InMemoryStore
+from backend.app.services.auth import AuthService
 
 
 @pytest.fixture
@@ -26,3 +28,18 @@ def user_factory(fixed_now: datetime) -> Callable[..., User]:
         return User.create(**values)  # type: ignore[arg-type]
 
     return build
+
+
+@pytest.fixture
+def store() -> InMemoryStore:
+    return InMemoryStore()
+
+
+@pytest.fixture
+def auth_service(store: InMemoryStore, fixed_now: datetime) -> AuthService:
+    return AuthService(
+        users=store.users,
+        tokens=store.tokens,
+        clock=lambda: fixed_now,
+        token_ttl=86_400,
+    )
