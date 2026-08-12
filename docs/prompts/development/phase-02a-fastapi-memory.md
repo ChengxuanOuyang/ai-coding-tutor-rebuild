@@ -125,3 +125,32 @@ backend/app/main.py、backend/tests/test_config.py、backend/tests/test_project_
   `{\"status\": \"ok\"}` 的 `GET /health`，未初始化 OpenAI 客户端或发起网络调用。
 - GREEN：聚焦测试与导入测试 `6 passed`；完整套件 `35 passed`；Ruff 输出
   `All checks passed!`；`git diff --check` 无输出。
+
+## 10. Task 2：领域模型、输入不变量与稳定错误（2026-08-12）
+
+### 实际产品与开发 Prompt
+
+```text
+实现 Phase 02A 的任务 2：领域模型、输入不变量与稳定错误。
+只在 feature/phase-02a-fastapi-memory 的隔离 worktree 修改 backend/app/domain、
+backend/tests/test_domain_models.py 和本阶段 Prompt 存档。先阅读任务简报、书面规格、
+实施计划、现有 HintLevel 类型和存档格式。
+
+严格 TDD：先写可收集的领域测试并运行，确认 RED 仅由缺失的 backend.app.domain 引起；
+随后只实现不可变领域记录、User.create、等级验证及稳定 DomainError 合同。不得提前实现
+Repository、Service、认证流程或 API。User.create 必须规范化 email/username_key，拒绝
+bool 和非 1..5 整数；默认 UUID 与 now 的行为必须可测，所有领域时间必须为 aware UTC。
+完成后记录 RED/GREEN、校正和全套验证证据。
+```
+
+### TDD 证据与校正
+
+- RED：执行 `.venv/bin/python -m pytest backend/tests/test_domain_models.py -v`，收集到 9 项；
+  全部因 `ModuleNotFoundError: No module named 'backend.app.domain'` 失败，证明目标领域包尚未实现。
+- GREEN：新增 frozen 领域记录、`MessageRole`、`User.create()`、UTC 时间检查和稳定错误属性后，
+  同一聚焦测试为 `9 passed`。
+- 校正：首次 Ruff 检查只报告新增测试的一条超长局部导入和导入排序；将其拆为标准多行导入，
+  未更改产品行为。
+- 领域边界：`User.create()` 默认以 `uuid4()` 生成 ID、以 `datetime.now(UTC)` 生成时间；注入
+  UUID 与 UTC 时间可使测试确定。所有领域记录会拒绝 naive 或非 UTC 时间，防止未来存储层混用
+  本地时间。
