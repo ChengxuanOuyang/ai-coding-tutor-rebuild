@@ -127,6 +127,8 @@ class InMemoryChatUnitOfWork:
         self._committed = True
 
     def _validate_staged_changes(self) -> None:
+        if self._user is None or self._messages is None:
+            raise ValueError("chat unit of work requires a staged user and message pair")
         if self._user is not None:
             self._store._validate_user_replacement(self._user)
         if self._messages is not None:
@@ -165,30 +167,37 @@ class InMemoryStore:
 
     def _add_user(self, user: User) -> None:
         self._validate_new_user(user)
+        email_key, username_key = self._identity_keys(user)
         self._users[user.id] = user
-        self._users_by_email[user.email] = user.id
-        self._users_by_username[user.username_key] = user.id
+        self._users_by_email[email_key] = user.id
+        self._users_by_username[username_key] = user.id
 
     def _validate_new_user(self, user: User) -> None:
+        email_key, username_key = self._identity_keys(user)
         if user.id in self._users:
             raise ConflictError("user_conflict", "User already exists")
-        if user.email in self._users_by_email:
+        if email_key in self._users_by_email:
             raise ConflictError("email_conflict", "Email already exists")
-        if user.username_key in self._users_by_username:
+        if username_key in self._users_by_username:
             raise ConflictError("username_conflict", "Username already exists")
 
     def _validate_user_replacement(self, user: User) -> None:
         current = self._users.get(user.id)
         if current is None:
             raise ConflictError("user_not_found", "User does not exist")
-        email_owner = self._users_by_email.get(user.email)
-        username_owner = self._users_by_username.get(user.username_key)
+        email_key, username_key = self._identity_keys(user)
+        email_owner = self._users_by_email.get(email_key)
+        username_owner = self._users_by_username.get(username_key)
         if email_owner not in (None, user.id):
             raise ConflictError("email_conflict", "Email already exists")
         if username_owner not in (None, user.id):
             raise ConflictError("username_conflict", "Username already exists")
-        if current.email != user.email or current.username_key != user.username_key:
+        if self._identity_keys(current) != (email_key, username_key):
             raise ValueError("staged user identity cannot change")
+
+    @staticmethod
+    def _identity_keys(user: User) -> tuple[str, str]:
+        return user.email.strip().lower(), user.username.casefold()
 
     def _replace_user(self, user: User) -> None:
         self._users[user.id] = user

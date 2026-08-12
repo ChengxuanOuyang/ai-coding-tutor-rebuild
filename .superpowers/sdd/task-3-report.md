@@ -1,6 +1,6 @@
 # Task 3 Report: Async Repository and In-Memory Unit of Work
 
-Status: DONE
+Status: DONE (review corrections applied)
 Date: 2026-08-12
 Worktree: `/Users/harrisonrio/Documents/下载常见工具/ai-coding-tutor-rebuild/.worktrees/phase-02a-fastapi-memory`
 
@@ -12,13 +12,26 @@ Worktree: `/Users/harrisonrio/Documents/下载常见工具/ai-coding-tutor-rebui
 - Added digest-based token lookup and expiry deletion.
 - Added `InMemoryChatUnitOfWork`: messages and user state remain local until `commit()`; all staged changes
   are validated before any write, then the user and the two-message pair are applied together.
-- Added deterministic UTC/user factory fixtures and seven async repository behavior tests.
+- Added deterministic UTC/user factory fixtures and twelve async repository behavior tests.
+
+## Review corrections
+
+- Replaced the invalid `collections.abc.AsyncContextManager` import with
+  `contextlib.AbstractAsyncContextManager`; the Protocol import and async method contract are now exercised.
+- Required a staged user and exactly one validated user/assistant pair before `ChatUnitOfWork.commit()` can
+  apply any state. User-only and messages-only commits now fail before all dictionary writes.
+- Made user uniqueness indexes derive their email and username keys at the Repository boundary, preventing
+  frozen `dataclasses.replace()` entities with altered `email` or `username_key` fields from bypassing identity
+  constraints.
 
 ## TDD evidence
 
 - RED: `.venv/bin/python -m pytest backend/tests/test_memory_repositories.py -v` collected seven tests and
   failed only with `ModuleNotFoundError: No module named 'backend.app.memory'`.
-- GREEN: the same target suite passed: `7 passed in 0.02s`.
+- GREEN (initial): the same target suite passed: `7 passed in 0.02s`.
+- Review RED: after five regression assertions were added, the target suite reported `5 failed, 7 passed` for
+  the invalid import, incomplete UOW commit, and identity-index bypasses.
+- Review GREEN: the target suite passed: `12 passed in 0.03s`; an explicit repository import succeeded.
 
 ## Final verification
 

@@ -1,4 +1,4 @@
-from collections.abc import AsyncContextManager
+from contextlib import AbstractAsyncContextManager
 from datetime import datetime
 from typing import Protocol
 from uuid import UUID
@@ -40,7 +40,7 @@ class MessageRepository(Protocol):
     async def list_for_session(self, session_id: UUID) -> list[ChatMessage]: ...
 
 
-class ChatUnitOfWork(Protocol, AsyncContextManager["ChatUnitOfWork"]):
+class ChatUnitOfWork(Protocol, AbstractAsyncContextManager["ChatUnitOfWork"]):
     def stage_messages(self, user_message: ChatMessage, assistant_message: ChatMessage) -> None: ...
 
     def stage_user(self, user: User) -> None: ...

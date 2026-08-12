@@ -1,10 +1,31 @@
 from dataclasses import replace
 from datetime import timedelta
+from inspect import iscoroutinefunction
 from uuid import uuid4
 
 import pytest
 
 from backend.app.domain.models import AuthToken, ChatMessage, ChatSession, MessageRole
+
+
+def test_repository_protocols_import_and_expose_async_contracts() -> None:
+    from backend.app.repositories import (
+        ChatUnitOfWork,
+        MessageRepository,
+        SessionRepository,
+        TokenRepository,
+        UserRepository,
+    )
+
+    for protocol, method in (
+        (UserRepository, "add"),
+        (TokenRepository, "get_by_digest"),
+        (SessionRepository, "get_for_user"),
+        (MessageRepository, "list_for_session"),
+        (ChatUnitOfWork, "commit"),
+    ):
+        assert hasattr(protocol, method)
+        assert iscoroutinefunction(getattr(protocol, method))
 
 
 @pytest.mark.asyncio
@@ -17,6 +38,29 @@ async def test_user_repository_enforces_normalized_email_and_username_uniqueness
     store = InMemoryStore()
     await store.users.add(user_factory(email=" Student@Example.com ", username="Student"))
 
+    with pytest.raises(ConflictError, match="Email already exists"):
+        await store.users.add(user_factory(email="student@example.com", username="other"))
+    with pytest.raises(ConflictError, match="Username already exists"):
+        await store.users.add(user_factory(email="other@example.com", username="student"))
+
+
+@pytest.mark.asyncio
+async def test_user_repository_normalizes_indexes_for_replaced_identity_fields(
+    user_factory,
+) -> None:
+    from backend.app.domain.errors import ConflictError
+    from backend.app.memory import InMemoryStore
+
+    store = InMemoryStore()
+    malformed_email = replace(
+        user_factory(),
+        email=" Student@EXAMPLE.com ",
+        username="Student",
+        username_key="not-the-real-key",
+    )
+    await store.users.add(malformed_email)
+
+    assert await store.users.get_by_email("student@example.com") == malformed_email
     with pytest.raises(ConflictError, match="Email already exists"):
         await store.users.add(user_factory(email="student@example.com", username="other"))
     with pytest.raises(ConflictError, match="Username already exists"):
@@ -116,6 +160,65 @@ async def test_chat_uow_commits_user_and_both_messages_together(user_factory, fi
 
     assert await store.users.get(user.id) == changed
     assert await store.messages.list_for_session(session.id) == [user_message, assistant_message]
+
+
+@pytest.mark.asyncio
+async def test_chat_uow_rejects_user_only_commit_without_visible_change(user_factory) -> None:
+    from backend.app.memory import InMemoryStore
+
+    store = InMemoryStore()
+    user = user_factory()
+    await store.users.add(user)
+
+    async with store.chat_uow() as uow:
+        uow.stage_user(replace(user, effective_programming_level=4.0))
+        with pytest.raises(ValueError, match="requires a staged user and message pair"):
+            await uow.commit()
+
+    assert await store.users.get(user.id) == user
+
+
+@pytest.mark.asyncio
+async def test_chat_uow_rejects_messages_only_commit_without_visible_change(
+    user_factory,
+    fixed_now,
+) -> None:
+    from backend.app.memory import InMemoryStore
+
+    store = InMemoryStore()
+    user = user_factory()
+    session = ChatSession(uuid4(), user.id, None, fixed_now, fixed_now)
+    user_message = ChatMessage(uuid4(), session.id, MessageRole.USER, "Help", fixed_now)
+    assistant_message = ChatMessage(
+        uuid4(), session.id, MessageRole.ASSISTANT, "Try this", fixed_now
+    )
+
+    async with store.chat_uow() as uow:
+        uow.stage_messages(user_message, assistant_message)
+        with pytest.raises(ValueError, match="requires a staged user and message pair"):
+            await uow.commit()
+
+    assert await store.messages.list_for_session(session.id) == []
+
+
+def test_chat_uow_requires_user_assistant_pair_for_one_session(fixed_now) -> None:
+    from backend.app.memory import InMemoryStore
+
+    store = InMemoryStore()
+    first_session_id = uuid4()
+    user_message = ChatMessage(uuid4(), first_session_id, MessageRole.USER, "Help", fixed_now)
+    assistant_message = ChatMessage(
+        uuid4(), first_session_id, MessageRole.ASSISTANT, "Try this", fixed_now
+    )
+    other_assistant_message = ChatMessage(
+        uuid4(), uuid4(), MessageRole.ASSISTANT, "Other", fixed_now
+    )
+    uow = store.chat_uow()
+
+    with pytest.raises(ValueError, match="user and assistant pair"):
+        uow.stage_messages(assistant_message, user_message)
+    with pytest.raises(ValueError, match="same session"):
+        uow.stage_messages(user_message, other_assistant_message)
 
 
 @pytest.mark.asyncio

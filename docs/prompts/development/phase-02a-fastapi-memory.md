@@ -187,3 +187,23 @@ commit 前不得有任何可见副作用；commit 必须先验证全部 staged �
   被丢弃。
 - 质量验证：完整套件 `51 passed`（仅现有 FastAPI/Starlette 弃用警告）；Ruff `All checks passed!`；
   `git diff --check` 无输出；新增文件的 `sk-`、私钥和 AWS key 模式扫描无匹配。
+
+### Task 3 审查纠偏（2026-08-12）
+
+```text
+修复 Task 3 独立审查发现的 Repository 合同缺口，不进入 Task 4。
+先为 Protocol 模块导入、UOW 不完整暂存提交和 frozen/replace 身份字段绕过分别写 RED 回归测试。
+最小修复正确的异步 context-manager 类型来源、完整聊天 UOW 提交前置条件，以及 Repository 自己的
+邮箱/用户名规范化索引。更新证据后运行目标/完整测试、Ruff、显式导入、diff 与敏感扫描。
+```
+
+- 根因：`AsyncContextManager` 被错误地从 `collections.abc` 导入，Python 3.12 导入
+  `backend.app.repositories` 时立即抛 `ImportError`；UOW 验证未要求 user 与消息对同时存在；索引键
+  直接信任可被 frozen `replace()` 伪造的实体字段。
+- RED：新增 5 项回归断言后，目标套件为 `5 failed, 7 passed`：Protocol 导入 `ImportError`、篡改
+  身份实体无法按规范化邮箱查询、user-only/messages-only `commit()` 未抛错，以及跨 session 配对
+  测试暴露了测试构造错误。后者改为正确的 user/assistant 跨会话对后，仍为所需产品 RED。
+- GREEN：改用 `contextlib.AbstractAsyncContextManager`；`commit()` 缺少 staged user 或完整消息对即
+  抛 `ValueError` 且没有字典写入；Repository 索引与所有权验证从 `email.strip().lower()` 和
+  `username.casefold()` 重新计算，而不是信任 `username_key`。目标测试 `12 passed`，并显式确认
+  `import backend.app.repositories` 成功。
