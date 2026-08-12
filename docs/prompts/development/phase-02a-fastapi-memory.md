@@ -154,3 +154,36 @@ bool 和非 1..5 整数；默认 UUID 与 now 的行为必须可测，所有领�
 - 领域边界：`User.create()` 默认以 `uuid4()` 生成 ID、以 `datetime.now(UTC)` 生成时间；注入
   UUID 与 UTC 时间可使测试确定。所有领域记录会拒绝 naive 或非 UTC 时间，防止未来存储层混用
   本地时间。
+
+## 11. Task 3：异步 Repository 与内存原子 Unit of Work（2026-08-12）
+
+### 实际产品与开发 Prompt
+
+```text
+实现 Phase 02A 的任务 3：异步 Repository 与内存原子 Unit of Work。
+只在 feature/phase-02a-fastapi-memory 的隔离 worktree 修改 backend/app/repositories.py、
+backend/app/memory.py、backend/tests/conftest.py、backend/tests/test_memory_repositories.py 和
+本阶段 Prompt 存档。先阅读批准规格、实施计划、领域模型/错误及 Prompt 归档格式。
+
+严格 TDD：先写可收集的唯一性、会话所有权、消息排序、Token 摘要查找和过期删除、UOW
+commit/rollback、锁复用测试并运行，确认 RED 仅由缺少 backend.app.memory 引起；随后只实现
+异步 Repository Protocol、共享 InMemoryStore、每会话 asyncio.Lock 与局部暂存的 Chat UOW。
+commit 前不得有任何可见副作用；commit 必须先验证全部 staged 变更，才一起应用学生状态和两条
+消息。UUID 始终作为 Repository 资源键；不实现服务、认证、HTTP 或外部网络功能。
+完成后运行聚焦与完整 Pytest、Ruff、diff check 和敏感信息扫描，并记录证据。
+```
+
+### TDD 证据与校正
+
+- RED：执行 `.venv/bin/python -m pytest backend/tests/test_memory_repositories.py -v`，7 项测试均因
+  `ModuleNotFoundError: No module named 'backend.app.memory'` 失败；测试已收集，失败原因仅为目标
+  Adapter 不存在。
+- GREEN：最小实现提供 `UserRepository`、`TokenRepository`、`SessionRepository`、
+  `MessageRepository` 与 `ChatUnitOfWork` Protocol；同一个 `InMemoryStore` 持有全部字典和 Adapter。
+  聚焦测试为 `7 passed`，覆盖规范化邮箱/用户名唯一性、会话所有权、按创建时间稳定排序、摘要
+  Token 查找/过期删除、未 commit 回滚、commit 双消息与用户状态、同 UUID 的锁复用。
+- 原子性校正：UOW 先验证 staged 用户和两条消息的全部冲突，再执行无 `await` 的字典写入；因此
+  验证失败不会留下更新后的用户或半条消息。离开 async context 而未 `commit()` 时局部 staged 值
+  被丢弃。
+- 质量验证：完整套件 `51 passed`（仅现有 FastAPI/Starlette 弃用警告）；Ruff `All checks passed!`；
+  `git diff --check` 无输出；新增文件的 `sk-`、私钥和 AWS key 模式扫描无匹配。
