@@ -4,6 +4,8 @@ from datetime import UTC, datetime
 import pytest
 from fastapi.testclient import TestClient
 
+from backend.app.ai.mock_analyzer import MockProblemAnalyzer
+from backend.app.ai.mock_provider import MockTutorProvider
 from backend.app.api.dependencies import AppContainer
 from backend.app.domain.models import User
 from backend.app.main import create_app
@@ -56,8 +58,13 @@ def client(auth_service: AuthService, store: InMemoryStore) -> TestClient:
             container=AppContainer(
                 auth_service=auth_service,
                 chat_service=ChatService(
+                    users=store.users,
                     sessions=store.sessions,
                     messages=store.messages,
+                    analyzer=MockProblemAnalyzer(),
+                    tutor=MockTutorProvider(),
+                    chat_uow_factory=store.chat_uow,
+                    session_lock_factory=store.session_lock,
                 ),
             )
         )

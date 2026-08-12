@@ -395,3 +395,45 @@ chat orchestration、无 OpenAI。追加 Prompt/TDD/迁移决策。apply_patch�
 - 聚焦 GREEN：Provider、Retry 和 CLI 测试为 `8 passed`；Ruff 对相关产品和测试文件输出
   `All checks passed!`。完整套件、实际 CLI JSON、diff 和敏感信息扫描在提交前重新运行并记录在 Task 8
   报告中。
+
+## 17. Task 9：原子 Chat Service 教学回合（2026-08-12）
+
+### 实际实现 Prompt
+
+```text
+实现 Phase02A Task9。工作树 feature/phase-02a-fastapi-memory，禁止 main。完整读 task9 brief、批准
+spec/plan、所有 ai/domain/memory/chat代码和Phase01教学/Prompt tests/Prompt归档。严格TDD。
+
+send_message锁内顺序必须：owner check → history 最近10条且总content最多4000字符（明确从最新向后预算后
+恢复时间顺序，不截断敏感语义除非spec定义）→ Analyzer → coerce metadata → hint levels → 两个EMA update →
+build prompt → Tutor → stage完整 user+assistant+updated user → commit。AnalyzerRequest recent_messages 只能用户
+历史且 oldest→newest；当前消息不重复塞历史。Prompt context字段映射精确，不能泄露隐藏levels给公开返回但
+内部消息metadata要完整审计。创建时间/UUID注入以可测并确保两个消息顺序；roles/assessment/hints/provider/
+model/token counts正确归属。失败 analyzer/tutor/metadata/prompt/UOW 都应零部分写；同session并发串行且第二
+回合看到第一回合历史/状态；不同session不要共享同锁。first-turn hint cap/EMA遵守Phase01合同。
+
+对 provider/analyzer transient retry 是否属于 Task9 请严格按spec，不擅自扩展。content输入服务层不变量
+（空/长度）查spec。避免 holding lock 之外TOCTOU。测试成功、各失败、rollback、并发、history budget/order、
+ownership、state evolution。
+```
+
+### TDD 证据与边界说明
+
+- RED：新增 `test_chat_service.py` 后运行
+  `.venv/bin/python -m pytest backend/tests/test_chat_service.py -v`，收集到 11 项，均因
+  `ChatService.__init__()` 尚不接受 Task 9 的 User Repository、Analyzer、Tutor、UOW 和会话锁依赖而失败；
+  这证明服务尚不能编排教学回合。随后以固定时钟和反向 UUID 新增跨两回合的消息排序回归，修复前单独运行按
+  预期失败：`second` 在 `first` 之前，证明同一固定时钟下需要显式维护创建顺序。
+- GREEN：`send_message()` 在同一 session 的 `asyncio.Lock` 内执行所有权校验、连续的最新历史后缀、Analyzer、
+  严格 Assessment 类型/范围校验、Phase 01 metadata coercion、双 hint/EMA、Prompt、Tutor 和单个 UOW commit。
+  只把用户历史（旧到新）交给 `AnalyzerRequest`；Prompt 的 `recent_messages` 为完整带角色历史序列。历史从最新
+  向后逐条预算，达到 10 条或 4,000 个 content 字符即停止，随后恢复时间顺序；不会截断任意已选消息。
+- 原子性：两条 `ChatMessage` 与 `replace()` 得到的完整 User 新状态均仅在 Tutor 成功后 stage，随后一次 commit。
+  Analyzer、Schema/metadata、Prompt、Tutor 或 UOW 失败时，测试均证明没有新消息也没有状态修改。用户消息保存
+  Assessment 与两个 hint 作为内部审计；助手消息保存 Provider、模型和输入/输出 Token。Task 10 的公开 Schema
+  仍负责筛除这些内部字段。
+- 时间与并发：时钟和 UUID factory 都可注入；助手时间必晚于用户时间，并在固定时钟时以前一条历史消息为下界，
+  防止 Repository 的 `(created_at, UUID)` 稳定排序打散多个回合。外部模型调用也保持该 session 锁，因此第二个
+  同会话请求在第一回合提交后才读取历史与用户状态；`InMemoryStore` 继续按 UUID 各自维护不同 session 的锁。
+- 重试边界：没有在本任务把 `retry_once` 包进 Analyzer 或 Tutor。Task 9 批准数据流未列出重试；Task 8 仅提供
+  通用策略，真实上游适配器将在后续 Task 11 按瞬时错误分类接入，避免重复重试或在 Mock 路径引入等待。

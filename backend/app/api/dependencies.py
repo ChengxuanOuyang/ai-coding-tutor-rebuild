@@ -5,6 +5,8 @@ from typing import Annotated
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
+from backend.app.ai.mock_analyzer import MockProblemAnalyzer
+from backend.app.ai.mock_provider import MockTutorProvider
 from backend.app.config import Settings
 from backend.app.domain.models import User
 from backend.app.memory import InMemoryStore
@@ -31,8 +33,13 @@ def create_default_container(settings: Settings | None = None) -> AppContainer:
             token_ttl=resolved_settings.token_ttl_seconds,
         ),
         chat_service=ChatService(
+            users=store.users,
             sessions=store.sessions,
             messages=store.messages,
+            analyzer=MockProblemAnalyzer(),
+            tutor=MockTutorProvider(),
+            chat_uow_factory=store.chat_uow,
+            session_lock_factory=store.session_lock,
             clock=lambda: datetime.now(UTC),
         ),
     )
